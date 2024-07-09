@@ -1,9 +1,4 @@
 class LcpBeacon {
-    private config: Array<any>;
-    private performanceImages: Array<any>;
-    private errorCode: String;
-    private scriptTimer: Date;
-    private infiniteLoopId: number|null;
 
     constructor( config ) {
         this.config            = config;
@@ -13,7 +8,7 @@ class LcpBeacon {
         this.infiniteLoopId    = null;
     }
 
-    async init(): Promise<void> {
+    async init() {
         if ( ! await this._isValidPreconditions() ) {
             this._finalize();
             return;
@@ -38,7 +33,7 @@ class LcpBeacon {
         this._saveFinalResultIntoDB();
     }
 
-    async _isValidPreconditions(): Promise<boolean> {
+    async _isValidPreconditions() {
         // Check the screensize first because starting any logic.
         if ( this._isNotValidScreensize() ) {
             this._logMessage('Bailing out because screen size is not acceptable');
@@ -53,7 +48,7 @@ class LcpBeacon {
         return true;
     }
 
-    _isPageCached(): boolean {
+    _isPageCached() {
         const signature = document.documentElement.nextSibling && document.documentElement.nextSibling.data ? document.documentElement.nextSibling.data : '';
 
         return signature && signature.includes( 'Debug: cached' );
