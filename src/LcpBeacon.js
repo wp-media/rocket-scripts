@@ -1,3 +1,4 @@
+'use strict';
 class LcpBeacon {
 
     constructor( config ) {
@@ -346,4 +347,4 @@ class LcpBeacon {
     }
 }
 
-export default LcpBeacon;
+module.exports = LcpBeacon;

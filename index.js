@@ -1,4 +1,3 @@
 'use strict';
-import lcpBeacon from './src/LcpBeacon';
-
-module.exports = lcpBeacon;
+const LcpBeacon = require("./src/LcpBeacon");
+module.exports = LcpBeacon;
