@@ -1,0 +1,22 @@
+{
+  "name": "rocket-scripts",
+  "version": "1.0.0",
+  "description": "Rocket main scripts packages",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wp-media/rocket-scripts.git"
+  },
+  "author": "WP Media Engineering Team",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/wp-media/rocket-scripts/issues"
+  },
+  "homepage": "https://github.com/wp-media/rocket-scripts#readme"
+}
