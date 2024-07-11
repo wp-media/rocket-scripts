@@ -1,20 +1,22 @@
-import { LcpBeacon } from './LcpBeacon';
+const LcpBeacon = require('./LcpBeacon');
 
-if ( !window.rocket_lcp_data ) {
-    return;
-}
+( rocket_lcp_data => {
+    if ( !rocket_lcp_data ) {
+        return;
+    }
 
-const instance = new LcpBeacon( window.rocket_lcp_data );
+    const instance = new LcpBeacon( rocket_lcp_data );
 
-if (document.readyState !== 'loading') {
-    setTimeout(() => {
-        instance.init();
-    }, window.rocket_lcp_data.delay);
-    return;
-}
+    if (document.readyState !== 'loading') {
+        setTimeout(() => {
+            instance.init();
+        }, rocket_lcp_data.delay);
+        return;
+    }
 
-document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(() => {
-        instance.init();
-    }, window.rocket_lcp_data.delay);
-});
+    document.addEventListener("DOMContentLoaded", () => {
+        setTimeout(() => {
+            instance.init();
+        }, rocket_lcp_data.delay);
+    });
+} )( window.rocket_lcp_data );
