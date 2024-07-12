@@ -113,13 +113,20 @@ describe('LcpBeacon', function() {
         });
     });
 
-    describe('#_handleInfiniteLoop()', function() {
-        let saveFinalResultIntoDBSpy, setAttributeSpy;
+    describe('#_saveFinalResultIntoDB()', function() {
+        let fetchStub, finalizeSpy, setAttributeSpy;
 
         beforeEach(function() {
-            // Spy on _saveFinalResultIntoDB to ensure it's called
-            saveFinalResultIntoDBSpy = sinon.spy(beacon, '_saveFinalResultIntoDB');
-            // Mock document.querySelector to specifically target the element modified in _finalize
+            // Setup fetch stub to simulate a successful response
+            fetchStub = sinon.stub(global, 'fetch').callsFake(() =>
+                Promise.resolve({
+                    json: () => Promise.resolve({ message: 'Data saved successfully' })
+                }).then(response => {
+                    // Simulate calling _finalize after the fetch promise resolves
+                    beacon._finalize();
+                    return response;
+                })
+            );
             global.document = {
                 querySelector: sinon.stub().withArgs('[data-name="wpr-lcp-beacon"]').returns({
                     setAttribute: function() {}
@@ -127,18 +134,61 @@ describe('LcpBeacon', function() {
             };
             // Spy on setAttribute to ensure it's called with the correct arguments
             setAttributeSpy = sinon.spy(global.document.querySelector('[data-name="wpr-lcp-beacon"]'), 'setAttribute');
+            // Prepare performanceImages or any other data needed by _saveFinalResultIntoDB
+            beacon.performanceImages = [{ src: 'http://example.com/image.jpg', label: 'lcp' }];
+            beacon.errorCode = '';
+            beacon.scriptTimer = new Date();
+            finalizeSpy = sinon.spy(beacon, '_finalize');
+        });
+
+        afterEach(function() {
+            // Restore the original fetch function
+            fetchStub.restore();
+            finalizeSpy.restore();
+            setAttributeSpy.restore();
+        });
+
+        it('should call fetch with the correct parameters and handle the response', async function() {
+            await beacon._saveFinalResultIntoDB();
+
+            sinon.assert.calledOnce(fetchStub);
+            const fetchCall = fetchStub.getCall(0);
+            assert.strictEqual(fetchCall.args[0], beacon.config.ajax_url);
+            assert.deepStrictEqual(fetchCall.args[1].method, "POST");
+            const sentFormData = fetchCall.args[1].body;
+
+            // Convert FormData to a plain object for easier comparison
+            const sentDataObject = formDataToObject(sentFormData);
+
+            // Now you can assert the values in sentDataObject
+            assert.strictEqual(sentDataObject['action'], 'rocket_lcp');
+            assert.strictEqual(sentDataObject['rocket_lcp_nonce'], config.nonce);
+            assert.strictEqual(sentDataObject['url'], config.url);
+            assert.strictEqual(sentDataObject['is_mobile'], config.is_mobile.toString());
+            // For complex types like arrays or objects, you might need to parse them before assertion
+            assert.deepStrictEqual(JSON.parse(sentDataObject['images']), beacon.performanceImages);
+            assert.strictEqual(sentDataObject['status'], beacon._getFinalStatus());
+            sinon.assert.calledOnce(finalizeSpy);
+            sinon.assert.calledWith(setAttributeSpy, 'beacon-completed', 'true');
+        });
+    });
+
+    describe('#_handleInfiniteLoop()', function() {
+        let saveFinalResultIntoDBSpy;
+
+        beforeEach(function() {
+            // Spy on _saveFinalResultIntoDB to ensure it's called
+            saveFinalResultIntoDBSpy = sinon.spy(beacon, '_saveFinalResultIntoDB');
         });
 
         afterEach(function() {
             // Restore the original methods
             saveFinalResultIntoDBSpy.restore();
-            setAttributeSpy.restore();
         });
 
         it('should call _saveFinalResultIntoDB and set beacon-completed to true', function() {
             beacon._handleInfiniteLoop();
             sinon.assert.calledOnce(saveFinalResultIntoDBSpy);
-            sinon.assert.calledWith(setAttributeSpy, 'beacon-completed', 'true');
         });
     });
     describe('#_finalize()', function() {
@@ -173,3 +223,24 @@ describe('LcpBeacon', function() {
         });
     });
 });
+
+// Helper function to convert FormData to a plain object
+function formDataToObject(formData) {
+    const object = {};
+    formData.forEach((value, key) => {
+        // Check if the object already contains the key
+        if (object.hasOwnProperty(key)) {
+            // If it's an array, push the new value
+            if (Array.isArray(object[key])) {
+                object[key].push(value);
+            } else {
+                // Convert to an array with the current and new value
+                object[key] = [object[key], value];
+            }
+        } else {
+            // Add the key and value
+            object[key] = value;
+        }
+    });
+    return object;
+}
