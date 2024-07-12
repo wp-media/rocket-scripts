@@ -42,14 +42,14 @@ describe('LcpBeacon', function() {
     });
     describe('#_isDuplicateImage()', function() {
         it('should return true for a duplicate image', function() {
-            beacon.performanceImages = [{ src: 'http://example.com/image.jpg' }];
-            const image = { src: 'http://example.com/image.jpg' };
+            beacon.performanceImages = [{ src: 'http://example.com/image.jpg', nodeName:'img', type:'img' }];
+            const image = { src: 'http://example.com/image.jpg', nodeName:'img', type:'img' };
             assert.strictEqual(beacon._isDuplicateImage(image), true);
         });
 
         it('should return false for a unique image', function() {
-            beacon.performanceImages = [{ src: 'http://example.com/image.jpg' }];
-            const image = { src: 'http://example.com/unique.jpg' };
+            beacon.performanceImages = [{ src: 'http://example.com/image.jpg', nodeName:'img', type:'img' }];
+            const image = { src: 'http://example.com/unique.jpg', nodeName:'img', type:'img' };
             assert.strictEqual(beacon._isDuplicateImage(image), false);
         });
     });
@@ -119,14 +119,14 @@ describe('LcpBeacon', function() {
         beforeEach(function() {
             // Spy on _saveFinalResultIntoDB to ensure it's called
             saveFinalResultIntoDBSpy = sinon.spy(beacon, '_saveFinalResultIntoDB');
-            // Mock document.querySelector to prevent errors in a Node environment
+            // Mock document.querySelector to specifically target the element modified in _finalize
             global.document = {
-                querySelector: sinon.stub().returns({
+                querySelector: sinon.stub().withArgs('[data-name="wpr-lcp-beacon"]').returns({
                     setAttribute: function() {}
                 })
             };
             // Spy on setAttribute to ensure it's called with the correct arguments
-            setAttributeSpy = sinon.spy(global.document.querySelector(), 'setAttribute');
+            setAttributeSpy = sinon.spy(global.document.querySelector('[data-name="wpr-lcp-beacon"]'), 'setAttribute');
         });
 
         afterEach(function() {
@@ -147,12 +147,12 @@ describe('LcpBeacon', function() {
         beforeEach(function() {
             // Mock document.querySelector to prevent errors in a Node environment
             global.document = {
-                querySelector: sinon.stub().returns({
+                querySelector: sinon.stub().withArgs('[data-name="wpr-lcp-beacon"]').returns({
                     setAttribute: function() {}
                 })
             };
             // Spy on setAttribute to ensure it's called with the correct arguments
-            setAttributeSpy = sinon.spy(global.document.querySelector(), 'setAttribute');
+            setAttributeSpy = sinon.spy(global.document.querySelector('[data-name="wpr-lcp-beacon"]'), 'setAttribute');
             // Spy on clearTimeout to ensure it's called
             clearTimeoutSpy = sinon.spy(global, 'clearTimeout');
             // Mock the infiniteLoopId to simulate a timeout being set
