@@ -2,12 +2,13 @@
   "name": "wp-rocket-scripts",
   "version": "1.0.0",
   "description": "Rocket main scripts packages",
+  "type": "module",
   "main": "index.js",
   "directories": {
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha test",
     "build:unmin": "esbuild ./src/rocketLcpBeacon.js --bundle --outfile=dist/lcp-beacon.js",
     "build:min": "esbuild ./dist/lcp-beacon.js --allow-overwrite --minify --sourcemap --outfile=dist/lcp-beacon.min.js",
     "build": "npm run build:unmin && npm run build:min"
@@ -23,6 +24,9 @@
   },
   "homepage": "https://github.com/wp-media/rocket-scripts#readme",
   "devDependencies": {
-    "esbuild": "0.23.0"
+    "esbuild": "0.23.0",
+    "mocha": "^10.6.0",
+    "node-fetch": "^3.3.2",
+    "sinon": "^18.0.0"
   }
 }

@@ -1,4 +1,4 @@
-const LcpBeacon = require('./LcpBeacon');
+import LcpBeacon from './LcpBeacon.js';
 
 ( rocket_lcp_data => {
     if ( !rocket_lcp_data ) {
