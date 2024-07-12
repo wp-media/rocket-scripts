@@ -8,10 +8,9 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify ./src/rocketLcpBeacon.js > dist/lcp-beacon.js",
-    "bundle:unmin": "esbuild ./src/rocketLcpBeacon.js --bundle --outfile=bundle/lcp-beacon.js",
-    "bundle:min": "esbuild ./bundle/lcp-beacon.js --allow-overwrite --minify --sourcemap --outfile=bundle/lcp-beacon.min.js",
-    "bundle": "npm run bundle:unmin && npm run bundle:min"
+    "build:unmin": "esbuild ./src/rocketLcpBeacon.js --bundle --outfile=dist/lcp-beacon.js",
+    "build:min": "esbuild ./dist/lcp-beacon.js --allow-overwrite --minify --sourcemap --outfile=dist/lcp-beacon.min.js",
+    "build": "npm run build:unmin && npm run build:min"
   },
   "repository": {
     "type": "git",
@@ -24,9 +23,6 @@
   },
   "homepage": "https://github.com/wp-media/rocket-scripts#readme",
   "devDependencies": {
-    "browserify": "^17.0.0",
-    "esbuild": "0.23.0",
-    "exorcist": "^2.0.0",
-    "uglify-js": "^3.18.0"
+    "esbuild": "0.23.0"
   }
 }
