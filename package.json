@@ -8,9 +8,9 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify ./src/rocketLcpBeacon.js > dist/rocket-lcp-beacon.js",
-    "bundle:unmin": "esbuild ./src/rocketLcpBeacon.js --bundle --outfile=bundle/rocket-lcp-beacon.js",
-    "bundle:min": "esbuild ./bundle/rocket-lcp-beacon.js --allow-overwrite --minify --sourcemap --outfile=bundle/rocket-lcp-beacon.min.js",
+    "build": "browserify ./src/rocketLcpBeacon.js > dist/lcp-beacon.js",
+    "bundle:unmin": "esbuild ./src/rocketLcpBeacon.js --bundle --outfile=bundle/lcp-beacon.js",
+    "bundle:min": "esbuild ./bundle/lcp-beacon.js --allow-overwrite --minify --sourcemap --outfile=bundle/lcp-beacon.min.js",
     "bundle": "npm run bundle:unmin && npm run bundle:min"
   },
   "repository": {
