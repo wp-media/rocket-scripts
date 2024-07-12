@@ -1,5 +1,5 @@
 {
-  "name": "rocket-scripts",
+  "name": "wp-rocket-scripts",
   "version": "1.0.0",
   "description": "Rocket main scripts packages",
   "main": "index.js",
