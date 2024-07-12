@@ -347,4 +347,4 @@ class LcpBeacon {
     }
 }
 
-module.exports = LcpBeacon;
+export default LcpBeacon;
