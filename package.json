@@ -8,7 +8,10 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify ./src/rocketLcpBeacon.js > dist/rocket-lcp-beacon.js"
+    "build": "browserify ./src/rocketLcpBeacon.js > dist/rocket-lcp-beacon.js",
+    "bundle:unmin": "esbuild ./src/rocketLcpBeacon.js --bundle --outfile=bundle/rocket-lcp-beacon.js",
+    "bundle:min": "esbuild ./bundle/rocket-lcp-beacon.js --allow-overwrite --minify --sourcemap --outfile=bundle/rocket-lcp-beacon.min.js",
+    "bundle": "npm run bundle:unmin && npm run bundle:min"
   },
   "repository": {
     "type": "git",
@@ -20,8 +23,9 @@
     "url": "https://github.com/wp-media/rocket-scripts/issues"
   },
   "homepage": "https://github.com/wp-media/rocket-scripts#readme",
-  "dependencies": {
+  "devDependencies": {
     "browserify": "^17.0.0",
+    "esbuild": "0.23.0",
     "exorcist": "^2.0.0",
     "uglify-js": "^3.18.0"
   }
