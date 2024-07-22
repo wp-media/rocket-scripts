@@ -1,3 +1,3 @@
 'use strict';
-const LcpBeacon = require("./src/LcpBeacon");
-module.exports = LcpBeacon;
+const Beacon = require("./src/RocketBeacon.js");
+module.exports = RocketBeacon;
