@@ -1,9 +1,14 @@
 'use strict';
+
+import BeaconUtils from "./Utils.js";
+import Logger from "./Logger.js";
+
 class RocketLcpBeacon {
     constructor(config) {
         this.config = config;
         this.performanceImages = [];
         this.errorCode = '';
+        this.logger = new Logger(this.config.debug);
     }
 
     async run() {
@@ -15,7 +20,7 @@ class RocketLcpBeacon {
             }
         } catch (err) {
             this.errorCode = 'script_error';
-            this._logMessage('Script Error: ' + err);
+            this.logger.logMessage('Script Error: ' + err);
         }
     }
 
@@ -54,7 +59,7 @@ class RocketLcpBeacon {
                 return (
                     item.rect.width > 0 &&
                     item.rect.height > 0 &&
-                    RocketBeacon._isIntersecting(item.rect)
+                    BeaconUtils.isIntersecting(item.rect)
                 );
             })
             .map(item => ({
@@ -165,7 +170,7 @@ class RocketLcpBeacon {
         const firstElementWithInfo = elements.find(item => item.elementInfo !== null);
 
         if (!firstElementWithInfo) {
-            this._logMessage("No LCP candidate found.");
+            this.logger.logMessage("No LCP candidate found.");
             this.performanceImages = [];
             return;
         }
@@ -205,13 +210,6 @@ class RocketLcpBeacon {
 
         return (isImageOrVideo || isBgImageOrPicture) &&
             this.performanceImages.some(item => item.src === elementInfo.src);
-    }
-
-    _logMessage(msg) {
-        if (!this.config.debug) {
-            return;
-        }
-        console.log(msg);
     }
 
     getResults() {
