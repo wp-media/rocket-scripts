@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "mocha test",
-    "build:unmin": "esbuild ./src/RocketFinalBeacon.js --bundle --outfile=dist/wpr-beacon.js",
+    "build:unmin": "esbuild ./src/BeaconEntryPoint.js --bundle --outfile=dist/wpr-beacon.js",
     "build:min": "esbuild ./dist/wpr-beacon.js --allow-overwrite --minify --sourcemap --outfile=dist/wpr-beacon.min.js",
     "build": "npm run build:unmin && npm run build:min"
   },

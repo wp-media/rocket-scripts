@@ -1,10 +1,10 @@
 'use strict';
 
-import RocketLcpBeacon from "./RocketLcpBeacon.js";
+import BeaconLcp from "./BeaconLcp.js";
 import BeaconUtils from "./Utils.js";
 import Logger from "./Logger.js";
 
-class RocketBeacon {
+class BeaconManager {
     constructor(config) {
         this.config = config;
         this.lcpBeacon = null;
@@ -27,7 +27,7 @@ class RocketBeacon {
         const isGeneratedBefore = await this._isGeneratedBefore();
 
         if (!isGeneratedBefore.lcp) {
-            this.lcpBeacon = new RocketLcpBeacon(this.config);
+            this.lcpBeacon = new BeaconLcp(this.config, this.logger);
             await this.lcpBeacon.run();
         }
 
@@ -126,4 +126,4 @@ class RocketBeacon {
 
 }
 
-export default RocketBeacon;
+export default BeaconManager;

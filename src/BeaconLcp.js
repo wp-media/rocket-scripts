@@ -1,14 +1,12 @@
 'use strict';
 
 import BeaconUtils from "./Utils.js";
-import Logger from "./Logger.js";
 
-class RocketLcpBeacon {
-    constructor(config) {
+class BeaconLcp {
+    constructor(config, logger) {
         this.config = config;
         this.performanceImages = [];
-        this.errorCode = '';
-        this.logger = new Logger(this.config.debug);
+        this.logger = logger;
     }
 
     async run() {
@@ -217,4 +215,4 @@ class RocketLcpBeacon {
     }
 }
 
-export default RocketLcpBeacon;
+export default BeaconLcp;
