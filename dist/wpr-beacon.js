@@ -238,8 +238,7 @@
         this.logger.logMessage("Bailing out because screen size is not acceptable");
         return false;
       }
-      const generated_before = await this._isGeneratedBefore();
-      if (Utils_default.isPageCached() && (this.config.status.atf && generated_before.lcp)) {
+      if (Utils_default.isPageCached() && await this._isGeneratedBefore()) {
         this.logger.logMessage("Bailing out because data is already available");
         return false;
       }
