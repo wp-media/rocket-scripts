@@ -1,12 +1,9 @@
 'use strict';
-
-import BeaconUtils from "./Utils.js";
-
-class BeaconLcp {
-    constructor(config, logger) {
+class RocketLcpBeacon {
+    constructor(config) {
         this.config = config;
         this.performanceImages = [];
-        this.logger = logger;
+        this.errorCode = '';
     }
 
     async run() {
@@ -18,7 +15,7 @@ class BeaconLcp {
             }
         } catch (err) {
             this.errorCode = 'script_error';
-            this.logger.logMessage('Script Error: ' + err);
+            this._logMessage('Script Error: ' + err);
         }
     }
 
@@ -57,7 +54,7 @@ class BeaconLcp {
                 return (
                     item.rect.width > 0 &&
                     item.rect.height > 0 &&
-                    BeaconUtils.isIntersecting(item.rect)
+                    RocketBeacon._isIntersecting(item.rect)
                 );
             })
             .map(item => ({
@@ -168,7 +165,7 @@ class BeaconLcp {
         const firstElementWithInfo = elements.find(item => item.elementInfo !== null);
 
         if (!firstElementWithInfo) {
-            this.logger.logMessage("No LCP candidate found.");
+            this._logMessage("No LCP candidate found.");
             this.performanceImages = [];
             return;
         }
@@ -210,9 +207,16 @@ class BeaconLcp {
             this.performanceImages.some(item => item.src === elementInfo.src);
     }
 
+    _logMessage(msg) {
+        if (!this.config.debug) {
+            return;
+        }
+        console.log(msg);
+    }
+
     getResults() {
         return this.performanceImages;
     }
 }
 
-export default BeaconLcp;
+export default RocketLcpBeacon;

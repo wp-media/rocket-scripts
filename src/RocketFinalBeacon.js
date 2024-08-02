@@ -1,11 +1,11 @@
-import BeaconManager from "./BeaconManager.js";
+import RocketBeacon from "./RocketBeacon.js";
 
 ( rocket_beacon_data => {
     if ( !rocket_beacon_data ) {
         return;
     }
 
-    const instance = new BeaconManager( rocket_beacon_data );
+    const instance = new RocketBeacon( rocket_beacon_data );
 
     if (document.readyState !== 'loading') {
         setTimeout(() => {

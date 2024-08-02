@@ -1,29 +1,10 @@
 (() => {
-  // src/Utils.js
-  var BeaconUtils = class {
-    static isNotValidScreensize(is_mobile, threshold) {
-      const screenWidth = window.innerWidth || document.documentElement.clientWidth;
-      const screenHeight = window.innerHeight || document.documentElement.clientHeight;
-      const isNotValidForMobile = is_mobile && (screenWidth > threshold.width || screenHeight > threshold.height);
-      const isNotValidForDesktop = !is_mobile && (screenWidth < threshold.width || screenHeight < threshold.height);
-      return isNotValidForMobile || isNotValidForDesktop;
-    }
-    static isPageCached() {
-      const signature = document.documentElement.nextSibling && document.documentElement.nextSibling.data ? document.documentElement.nextSibling.data : "";
-      return signature && signature.includes("Debug: cached");
-    }
-    static isIntersecting(rect) {
-      return rect.bottom >= 0 && rect.right >= 0 && rect.top <= (window.innerHeight || document.documentElement.clientHeight) && rect.left <= (window.innerWidth || document.documentElement.clientWidth);
-    }
-  };
-  var Utils_default = BeaconUtils;
-
-  // src/BeaconLcp.js
-  var BeaconLcp = class {
-    constructor(config, logger) {
+  // src/RocketLcpBeacon.js
+  var RocketLcpBeacon = class {
+    constructor(config) {
       this.config = config;
       this.performanceImages = [];
-      this.logger = logger;
+      this.errorCode = "";
     }
     async run() {
       try {
@@ -34,7 +15,7 @@
         }
       } catch (err) {
         this.errorCode = "script_error";
-        this.logger.logMessage("Script Error: " + err);
+        this._logMessage("Script Error: " + err);
       }
     }
     _generateLcpCandidates(count) {
@@ -63,7 +44,7 @@
           rect
         };
       }).filter((item) => item !== null).filter((item) => {
-        return item.rect.width > 0 && item.rect.height > 0 && Utils_default.isIntersecting(item.rect);
+        return item.rect.width > 0 && item.rect.height > 0 && RocketBeacon._isIntersecting(item.rect);
       }).map((item) => ({
         item,
         area: this._getElementArea(item.rect),
@@ -158,7 +139,7 @@
     _initWithFirstElementWithInfo(elements) {
       const firstElementWithInfo = elements.find((item) => item.elementInfo !== null);
       if (!firstElementWithInfo) {
-        this.logger.logMessage("No LCP candidate found.");
+        this._logMessage("No LCP candidate found.");
         this.performanceImages = [];
         return;
       }
@@ -184,35 +165,26 @@
       const isBgImageOrPicture = elementInfo.type === "bg-img" || elementInfo.type === "bg-img-set" || elementInfo.type === "picture";
       return (isImageOrVideo || isBgImageOrPicture) && this.performanceImages.some((item) => item.src === elementInfo.src);
     }
-    getResults() {
-      return this.performanceImages;
-    }
-  };
-  var BeaconLcp_default = BeaconLcp;
-
-  // src/Logger.js
-  var Logger = class {
-    constructor(enabled) {
-      this.enabled = enabled;
-    }
-    logMessage(msg) {
-      if (!this.enabled) {
+    _logMessage(msg) {
+      if (!this.config.debug) {
         return;
       }
       console.log(msg);
     }
+    getResults() {
+      return this.performanceImages;
+    }
   };
-  var Logger_default = Logger;
+  var RocketLcpBeacon_default = RocketLcpBeacon;
 
-  // src/BeaconManager.js
-  var BeaconManager = class {
+  // src/RocketBeacon.js
+  var RocketBeacon2 = class {
     constructor(config) {
       this.config = config;
       this.lcpBeacon = null;
       this.infiniteLoopId = null;
       this.scriptTimer = /* @__PURE__ */ new Date();
       this.errorCode = "";
-      this.logger = new Logger_default(this.config.debug);
     }
     async init() {
       if (!await this._isValidPreconditions()) {
@@ -224,25 +196,25 @@
       }, 1e4);
       const isGeneratedBefore = await this._isGeneratedBefore();
       if (!isGeneratedBefore.lcp) {
-        this.lcpBeacon = new BeaconLcp_default(this.config, this.logger);
+        this.lcpBeacon = new RocketLcpBeacon_default(this.config);
         await this.lcpBeacon.run();
       }
       this._saveFinalResultIntoDB();
     }
     async _isValidPreconditions() {
-      const threshold = {
-        width: this.config.width_threshold,
-        height: this.config.height_threshold
-      };
-      if (Utils_default.isNotValidScreensize(this.config.is_mobile, threshold)) {
-        this.logger.logMessage("Bailing out because screen size is not acceptable");
+      if (this._isNotValidScreensize()) {
+        this._logMessage("Bailing out because screen size is not acceptable");
         return false;
       }
-      if (Utils_default.isPageCached() && await this._isGeneratedBefore()) {
-        this.logger.logMessage("Bailing out because data is already available");
+      if (this._isPageCached() && await this._isGeneratedBefore()) {
+        this._logMessage("Bailing out because data is already available");
         return false;
       }
       return true;
+    }
+    _isPageCached() {
+      const signature = document.documentElement.nextSibling && document.documentElement.nextSibling.data ? document.documentElement.nextSibling.data : "";
+      return signature && signature.includes("Debug: cached");
     }
     async _isGeneratedBefore() {
       let data_check = new FormData();
@@ -257,17 +229,25 @@
       }).then((data) => data.json());
       return beacon_data_response.data;
     }
+    _isNotValidScreensize() {
+      const screenWidth = window.innerWidth || document.documentElement.clientWidth;
+      const screenHeight = window.innerHeight || document.documentElement.clientHeight;
+      const isNotValidForMobile = this.config.is_mobile && (screenWidth > this.config.width_threshold || screenHeight > this.config.height_threshold);
+      const isNotValidForDesktop = !this.config.is_mobile && (screenWidth < this.config.width_threshold || screenHeight < this.config.height_threshold);
+      return isNotValidForMobile || isNotValidForDesktop;
+    }
+    static _isIntersecting(rect) {
+      return rect.bottom >= 0 && rect.right >= 0 && rect.top <= (window.innerHeight || document.documentElement.clientHeight) && rect.left <= (window.innerWidth || document.documentElement.clientWidth);
+    }
     _saveFinalResultIntoDB() {
-      const results = {
-        lcp: this.lcpBeacon ? this.lcpBeacon.getResults() : null
-      };
+      const lcpResults = this.lcpBeacon ? this.lcpBeacon.getResults() : null;
       const data = new FormData();
       data.append("action", "rocket_beacon");
       data.append("rocket_beacon_nonce", this.config.nonce);
       data.append("url", this.config.url);
       data.append("is_mobile", this.config.is_mobile);
       data.append("status", this._getFinalStatus());
-      data.append("results", JSON.stringify(results));
+      data.append("lcp_images", JSON.stringify(lcpResults));
       fetch(this.config.ajax_url, {
         method: "POST",
         credentials: "same-origin",
@@ -276,9 +256,9 @@
           "wpr-saas-no-intercept": true
         }
       }).then((response) => response.json()).then((data2) => {
-        this.logger.logMessage(data2);
+        this._logMessage(data2);
       }).catch((error) => {
-        this.logger.logMessage(error);
+        this._logMessage(error);
       }).finally(() => {
         this._finalize();
       });
@@ -301,15 +281,21 @@
       beaconscript.setAttribute("beacon-completed", "true");
       clearTimeout(this.infiniteLoopId);
     }
+    _logMessage(msg) {
+      if (!this.config.debug) {
+        return;
+      }
+      console.log(msg);
+    }
   };
-  var BeaconManager_default = BeaconManager;
+  var RocketBeacon_default = RocketBeacon2;
 
-  // src/BeaconEntryPoint.js
+  // src/RocketFinalBeacon.js
   ((rocket_beacon_data) => {
     if (!rocket_beacon_data) {
       return;
     }
-    const instance = new BeaconManager_default(rocket_beacon_data);
+    const instance = new RocketBeacon_default(rocket_beacon_data);
     if (document.readyState !== "loading") {
       setTimeout(() => {
         instance.init();

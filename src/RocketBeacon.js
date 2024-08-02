@@ -1,17 +1,14 @@
 'use strict';
 
-import BeaconLcp from "./BeaconLcp.js";
-import BeaconUtils from "./Utils.js";
-import Logger from "./Logger.js";
+import RocketLcpBeacon from "./RocketLcpBeacon.js";
 
-class BeaconManager {
+class RocketBeacon {
     constructor(config) {
         this.config = config;
         this.lcpBeacon = null;
         this.infiniteLoopId = null;
         this.scriptTimer = new Date();
         this.errorCode = '';
-        this.logger = new Logger(this.config.debug);
     }
 
     async init() {
@@ -27,7 +24,7 @@ class BeaconManager {
         const isGeneratedBefore = await this._isGeneratedBefore();
 
         if (!isGeneratedBefore.lcp) {
-            this.lcpBeacon = new BeaconLcp(this.config, this.logger);
+            this.lcpBeacon = new RocketLcpBeacon(this.config);
             await this.lcpBeacon.run();
         }
 
@@ -35,21 +32,22 @@ class BeaconManager {
     }
 
     async _isValidPreconditions() {
-        const threshold = {
-            width: this.config.width_threshold,
-            height: this.config.height_threshold
-        };
-        if (BeaconUtils.isNotValidScreensize(this.config.is_mobile, threshold)) {
-            this.logger.logMessage('Bailing out because screen size is not acceptable');
+        if (this._isNotValidScreensize()) {
+            this._logMessage('Bailing out because screen size is not acceptable');
             return false;
         }
 
-        if (BeaconUtils.isPageCached() && await this._isGeneratedBefore()) {
-            this.logger.logMessage('Bailing out because data is already available');
+        if (this._isPageCached() && await this._isGeneratedBefore()) {
+            this._logMessage('Bailing out because data is already available');
             return false;
         }
 
         return true;
+    }
+
+    _isPageCached() {
+        const signature = document.documentElement.nextSibling && document.documentElement.nextSibling.data ? document.documentElement.nextSibling.data : '';
+        return signature && signature.includes('Debug: cached');
     }
 
     async _isGeneratedBefore() {
@@ -68,10 +66,29 @@ class BeaconManager {
         return beacon_data_response.data;
     }
 
+    _isNotValidScreensize() {
+        const screenWidth = window.innerWidth || document.documentElement.clientWidth;
+        const screenHeight = window.innerHeight || document.documentElement.clientHeight;
+
+        const isNotValidForMobile = this.config.is_mobile &&
+            (screenWidth > this.config.width_threshold || screenHeight > this.config.height_threshold);
+        const isNotValidForDesktop = !this.config.is_mobile &&
+            (screenWidth < this.config.width_threshold || screenHeight < this.config.height_threshold);
+
+        return isNotValidForMobile || isNotValidForDesktop;
+    }
+
+    static _isIntersecting(rect) {
+        return (
+            rect.bottom >= 0 &&
+            rect.right >= 0 &&
+            rect.top <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.left <= (window.innerWidth || document.documentElement.clientWidth)
+        );
+    }
+
     _saveFinalResultIntoDB() {
-        const results = {
-            lcp: this.lcpBeacon ? this.lcpBeacon.getResults() : null
-        };
+        const lcpResults = this.lcpBeacon ? this.lcpBeacon.getResults() : null;
 
         const data = new FormData();
         data.append('action', 'rocket_beacon');
@@ -79,7 +96,7 @@ class BeaconManager {
         data.append('url', this.config.url);
         data.append('is_mobile', this.config.is_mobile);
         data.append('status', this._getFinalStatus());
-        data.append('results', JSON.stringify(results));
+        data.append('lcp_images', JSON.stringify(lcpResults));
 
         fetch(this.config.ajax_url, {
             method: "POST",
@@ -91,10 +108,10 @@ class BeaconManager {
         })
             .then(response => response.json())
             .then(data => {
-                this.logger.logMessage(data);
+                this._logMessage(data);
             })
             .catch(error => {
-                this.logger.logMessage(error);
+                this._logMessage(error);
             })
             .finally(() => {
                 this._finalize();
@@ -124,6 +141,12 @@ class BeaconManager {
         clearTimeout(this.infiniteLoopId);
     }
 
+    _logMessage(msg) {
+        if (!this.config.debug) {
+            return;
+        }
+        console.log(msg);
+    }
 }
 
-export default BeaconManager;
+export default RocketBeacon;
