@@ -44,7 +44,9 @@ class BeaconManager {
             return false;
         }
 
-        if (BeaconUtils.isPageCached() && await this._isGeneratedBefore()) {
+        const generated_before = await this._isGeneratedBefore();
+
+        if (BeaconUtils.isPageCached() && ( this.config.status.atf && generated_before.lcp )) {
             this.logger.logMessage('Bailing out because data is already available');
             return false;
         }
