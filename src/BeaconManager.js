@@ -24,11 +24,17 @@ class BeaconManager {
             this._handleInfiniteLoop();
         }, 10000);
 
-        const isGeneratedBefore = await this._isGeneratedBefore();
+        const isGeneratedBefore = await this._getGeneratedBefore();
 
-        if (!isGeneratedBefore.lcp) {
+        // OCI / LCP / ATF
+        const shouldGenerateLcp = (
+            this.config.status.atf && (isGeneratedBefore === false)
+        );
+        if (shouldGenerateLcp) {
             this.lcpBeacon = new BeaconLcp(this.config, this.logger);
             await this.lcpBeacon.run();
+        } else {
+            this.logger.logMessage('Not running BeaconLcp because data is already available');
         }
 
         this._saveFinalResultIntoDB();
@@ -44,17 +50,15 @@ class BeaconManager {
             return false;
         }
 
-        const generated_before = await this._isGeneratedBefore();
-
-        if (BeaconUtils.isPageCached() && ( this.config.status.atf && generated_before.lcp )) {
-            this.logger.logMessage('Bailing out because data is already available');
-            return false;
-        }
-
         return true;
     }
 
-    async _isGeneratedBefore() {
+    async _getGeneratedBefore() {
+
+        if (!BeaconUtils.isPageCached()) {
+            return false;
+        }     
+
         let data_check = new FormData();
         data_check.append('action', 'rocket_check_beacon');
         data_check.append('rocket_beacon_nonce', this.config.nonce);
@@ -67,7 +71,8 @@ class BeaconManager {
             body: data_check
         }).then(data => data.json());
 
-        return beacon_data_response.data;
+        return beacon_data_response.success;
+        
     }
 
     _saveFinalResultIntoDB() {
