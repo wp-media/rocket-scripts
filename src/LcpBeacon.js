@@ -5,11 +5,12 @@ class LcpBeacon {
         this.config            = config;
         this.performanceImages = [];
         this.errorCode         = '';
-        this.scriptTimer       = new Date();
         this.infiniteLoopId    = null;
     }
 
     async init() {
+        this.scriptTimer = new Date();
+
         if ( ! await this._isValidPreconditions() ) {
             this._finalize();
             return;
