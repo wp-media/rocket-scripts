@@ -1,7 +1,7 @@
 import assert from 'assert';
 import sinon from 'sinon';
-import LcpBeacon from '../src/LcpBeacon.js';
 import node_fetch from 'node-fetch';
+import BeaconLcp from "../src/BeaconLcp.js";
 global.fetch = node_fetch;
 
 
@@ -9,7 +9,7 @@ describe('LcpBeacon', function() {
     let beacon;
     const config = { nonce: 'test', url: 'http://example.com', is_mobile: false };
     beforeEach(function() {
-        beacon = new LcpBeacon(config);
+        beacon = new BeaconLcp(config);
     });
 
     describe('#constructor()', function() {
