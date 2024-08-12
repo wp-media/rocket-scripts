@@ -58,7 +58,7 @@ You should see the targeted version of the beacon in your working directory `/n
 npm run gulp build:js:beacon
 ```
 
-You should see the new beacon files in `assets/js`.
+You should see the new beacon files in `assets/js`.
 
 7. Compile the plugin zip as usual.
 
