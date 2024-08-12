@@ -1,21 +1,31 @@
 (() => {
-  // src/LcpBeacon.js
-  var LcpBeacon = class {
-    constructor(config) {
+  // src/Utils.js
+  var BeaconUtils = class {
+    static isNotValidScreensize(is_mobile, threshold) {
+      const screenWidth = window.innerWidth || document.documentElement.clientWidth;
+      const screenHeight = window.innerHeight || document.documentElement.clientHeight;
+      const isNotValidForMobile = is_mobile && (screenWidth > threshold.width || screenHeight > threshold.height);
+      const isNotValidForDesktop = !is_mobile && (screenWidth < threshold.width || screenHeight < threshold.height);
+      return isNotValidForMobile || isNotValidForDesktop;
+    }
+    static isPageCached() {
+      const signature = document.documentElement.nextSibling && document.documentElement.nextSibling.data ? document.documentElement.nextSibling.data : "";
+      return signature && signature.includes("Debug: cached");
+    }
+    static isIntersecting(rect) {
+      return rect.bottom >= 0 && rect.right >= 0 && rect.top <= (window.innerHeight || document.documentElement.clientHeight) && rect.left <= (window.innerWidth || document.documentElement.clientWidth);
+    }
+  };
+  var Utils_default = BeaconUtils;
+
+  // src/BeaconLcp.js
+  var BeaconLcp = class {
+    constructor(config, logger) {
       this.config = config;
       this.performanceImages = [];
-      this.errorCode = "";
-      this.infiniteLoopId = null;
+      this.logger = logger;
     }
-    async init() {
-      this.scriptTimer = /* @__PURE__ */ new Date();
-      if (!await this._isValidPreconditions()) {
-        this._finalize();
-        return;
-      }
-      this.infiniteLoopId = setTimeout(() => {
-        this._handleInfiniteLoop();
-      }, 1e4);
+    async run() {
       try {
         const above_the_fold_images = this._generateLcpCandidates(Infinity);
         if (above_the_fold_images) {
@@ -24,44 +34,8 @@
         }
       } catch (err) {
         this.errorCode = "script_error";
-        this._logMessage("Script Error: " + err);
+        this.logger.logMessage("Script Error: " + err);
       }
-      this._saveFinalResultIntoDB();
-    }
-    async _isValidPreconditions() {
-      if (this._isNotValidScreensize()) {
-        this._logMessage("Bailing out because screen size is not acceptable");
-        return false;
-      }
-      if (this._isPageCached() && await this._isGeneratedBefore()) {
-        this._logMessage("Bailing out because data is already available");
-        return false;
-      }
-      return true;
-    }
-    _isPageCached() {
-      const signature = document.documentElement.nextSibling && document.documentElement.nextSibling.data ? document.documentElement.nextSibling.data : "";
-      return signature && signature.includes("Debug: cached");
-    }
-    async _isGeneratedBefore() {
-      let data_check = new FormData();
-      data_check.append("action", "rocket_check_lcp");
-      data_check.append("rocket_lcp_nonce", this.config.nonce);
-      data_check.append("url", this.config.url);
-      data_check.append("is_mobile", this.config.is_mobile);
-      const lcp_data_response = await fetch(this.config.ajax_url, {
-        method: "POST",
-        credentials: "same-origin",
-        body: data_check
-      }).then((data) => data.json());
-      return lcp_data_response.success;
-    }
-    _isNotValidScreensize() {
-      const screenWidth = window.innerWidth || document.documentElement.clientWidth;
-      const screenHeight = window.innerHeight || document.documentElement.clientHeight;
-      const isNotValidForMobile = this.config.is_mobile && (screenWidth > this.config.width_threshold || screenHeight > this.config.height_threshold);
-      const isNotValidForDesktop = !this.config.is_mobile && (screenWidth < this.config.width_threshold || screenHeight < this.config.height_threshold);
-      return isNotValidForMobile || isNotValidForDesktop;
     }
     _generateLcpCandidates(count) {
       const lcpElements = document.querySelectorAll(this.config.elements);
@@ -89,7 +63,7 @@
           rect
         };
       }).filter((item) => item !== null).filter((item) => {
-        return item.rect.width > 0 && item.rect.height > 0 && this._isIntersecting(item.rect);
+        return item.rect.width > 0 && item.rect.height > 0 && Utils_default.isIntersecting(item.rect);
       }).map((item) => ({
         item,
         area: this._getElementArea(item.rect),
@@ -99,9 +73,6 @@
         element: candidate.item.element,
         elementInfo: candidate.elementInfo
       }));
-    }
-    _isIntersecting(rect) {
-      return rect.bottom >= 0 && rect.right >= 0 && rect.top <= (window.innerHeight || document.documentElement.clientHeight) && rect.left <= (window.innerWidth || document.documentElement.clientWidth);
     }
     _getElementArea(rect) {
       const visibleWidth = Math.min(rect.width, (window.innerWidth || document.documentElement.clientWidth) - rect.left);
@@ -187,7 +158,7 @@
     _initWithFirstElementWithInfo(elements) {
       const firstElementWithInfo = elements.find((item) => item.elementInfo !== null);
       if (!firstElementWithInfo) {
-        this._logMessage("No LCP candidate found.");
+        this.logger.logMessage("No LCP candidate found.");
         this.performanceImages = [];
         return;
       }
@@ -213,6 +184,107 @@
       const isBgImageOrPicture = elementInfo.type === "bg-img" || elementInfo.type === "bg-img-set" || elementInfo.type === "picture";
       return (isImageOrVideo || isBgImageOrPicture) && this.performanceImages.some((item) => item.src === elementInfo.src);
     }
+    getResults() {
+      return this.performanceImages;
+    }
+  };
+  var BeaconLcp_default = BeaconLcp;
+
+  // src/Logger.js
+  var Logger = class {
+    constructor(enabled) {
+      this.enabled = enabled;
+    }
+    logMessage(msg) {
+      if (!this.enabled) {
+        return;
+      }
+      console.log(msg);
+    }
+  };
+  var Logger_default = Logger;
+
+  // src/BeaconManager.js
+  var BeaconManager = class {
+    constructor(config) {
+      this.config = config;
+      this.lcpBeacon = null;
+      this.infiniteLoopId = null;
+      this.errorCode = "";
+      this.logger = new Logger_default(this.config.debug);
+    }
+    async init() {
+      this.scriptTimer = /* @__PURE__ */ new Date();
+      if (!await this._isValidPreconditions()) {
+        this._finalize();
+        return;
+      }
+      this.infiniteLoopId = setTimeout(() => {
+        this._handleInfiniteLoop();
+      }, 1e4);
+      const isGeneratedBefore = await this._getGeneratedBefore();
+      const shouldGenerateLcp = this.config.status.atf && isGeneratedBefore === false;
+      if (shouldGenerateLcp) {
+        this.lcpBeacon = new BeaconLcp_default(this.config, this.logger);
+        await this.lcpBeacon.run();
+      } else {
+        this.logger.logMessage("Not running BeaconLcp because data is already available");
+      }
+      this._saveFinalResultIntoDB();
+    }
+    async _isValidPreconditions() {
+      const threshold = {
+        width: this.config.width_threshold,
+        height: this.config.height_threshold
+      };
+      if (Utils_default.isNotValidScreensize(this.config.is_mobile, threshold)) {
+        this.logger.logMessage("Bailing out because screen size is not acceptable");
+        return false;
+      }
+      return true;
+    }
+    async _getGeneratedBefore() {
+      if (!Utils_default.isPageCached()) {
+        return false;
+      }
+      let data_check = new FormData();
+      data_check.append("action", "rocket_check_beacon");
+      data_check.append("rocket_beacon_nonce", this.config.nonce);
+      data_check.append("url", this.config.url);
+      data_check.append("is_mobile", this.config.is_mobile);
+      const beacon_data_response = await fetch(this.config.ajax_url, {
+        method: "POST",
+        credentials: "same-origin",
+        body: data_check
+      }).then((data) => data.json());
+      return beacon_data_response.success;
+    }
+    _saveFinalResultIntoDB() {
+      const results = {
+        lcp: this.lcpBeacon ? this.lcpBeacon.getResults() : null
+      };
+      const data = new FormData();
+      data.append("action", "rocket_beacon");
+      data.append("rocket_beacon_nonce", this.config.nonce);
+      data.append("url", this.config.url);
+      data.append("is_mobile", this.config.is_mobile);
+      data.append("status", this._getFinalStatus());
+      data.append("results", JSON.stringify(results));
+      fetch(this.config.ajax_url, {
+        method: "POST",
+        credentials: "same-origin",
+        body: data,
+        headers: {
+          "wpr-saas-no-intercept": true
+        }
+      }).then((response) => response.json()).then((data2) => {
+        this.logger.logMessage(data2);
+      }).catch((error) => {
+        this.logger.logMessage(error);
+      }).finally(() => {
+        this._finalize();
+      });
+    }
     _getFinalStatus() {
       if ("" !== this.errorCode) {
         return this.errorCode;
@@ -223,62 +295,33 @@
       }
       return "success";
     }
-    _saveFinalResultIntoDB() {
-      const data = new FormData();
-      data.append("action", "rocket_lcp");
-      data.append("rocket_lcp_nonce", this.config.nonce);
-      data.append("url", this.config.url);
-      data.append("is_mobile", this.config.is_mobile);
-      data.append("images", JSON.stringify(this.performanceImages));
-      data.append("status", this._getFinalStatus());
-      fetch(this.config.ajax_url, {
-        method: "POST",
-        credentials: "same-origin",
-        body: data,
-        headers: {
-          "wpr-saas-no-intercept": true
-        }
-      }).then((response) => response.json()).then((data2) => {
-        this._logMessage(data2);
-      }).catch((error) => {
-        this._logMessage(error);
-      }).finally(() => {
-        this._finalize();
-      });
-    }
     _handleInfiniteLoop() {
       this._saveFinalResultIntoDB();
     }
     _finalize() {
-      const beaconscript = document.querySelector('[data-name="wpr-lcp-beacon"]');
+      const beaconscript = document.querySelector('[data-name="wpr-wpr-beacon"]');
       beaconscript.setAttribute("beacon-completed", "true");
       clearTimeout(this.infiniteLoopId);
     }
-    _logMessage(msg) {
-      if (!this.config.debug) {
-        return;
-      }
-      console.log(msg);
-    }
   };
-  var LcpBeacon_default = LcpBeacon;
+  var BeaconManager_default = BeaconManager;
 
-  // src/rocketLcpBeacon.js
-  ((rocket_lcp_data) => {
-    if (!rocket_lcp_data) {
+  // src/BeaconEntryPoint.js
+  ((rocket_beacon_data) => {
+    if (!rocket_beacon_data) {
       return;
     }
-    const instance = new LcpBeacon_default(rocket_lcp_data);
+    const instance = new BeaconManager_default(rocket_beacon_data);
     if (document.readyState !== "loading") {
       setTimeout(() => {
         instance.init();
-      }, rocket_lcp_data.delay);
+      }, rocket_beacon_data.delay);
       return;
     }
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => {
         instance.init();
-      }, rocket_lcp_data.delay);
+      }, rocket_beacon_data.delay);
     });
-  })(window.rocket_lcp_data);
+  })(window.rocket_beacon_data);
 })();
