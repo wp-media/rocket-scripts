@@ -3,7 +3,7 @@ on:
   release:
     types: [published]
 jobs:
-  build:
+  release-npmjs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,3 +24,89 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  deploy-wprocket:
+    runs-on: ubuntu-latest
+    needs: release-npmjs
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Checkout WP Rocket repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_WORKFLOW_WPROCKET_ACCESS }}
+          repository: wp-media/wp-rocket
+          ref: develop
+          path: wp-rocket
+
+      - name: Checkout rocket-scripts
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_WORKFLOW_SELF_CHECKOUT }}
+          path: rocket-scripts
+    
+      - name: Install dependencies
+        run: npm ci
+        working-directory: rocket-scripts
+      - name: Build project
+        run: npm run build
+        working-directory: rocket-scripts
+    
+      - name: Get rocket-scripts version
+        id: get_version
+        run: |
+          VERSION=$(jq -r '.version' rocket-scripts/package.json)
+          echo "ROCKET_SCRIPTS_VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Checkout WP Rocket develop branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_WORKFLOW_WPROCKET_ACCESS }}
+          repository: wp-media/wp-rocket
+          ref: develop
+    
+      - name: Update rocket-script inside WP Rocket
+        run: |
+          cp rocket-scripts/dist/wpr-beacon.js wp-rocket/assets/js/wpr-beacon.js
+          cp rocket-scripts/dist/wpr-beacon.min.js wp-rocket/assets/js/wpr-beacon.min.js
+          cp rocket-scripts/dist/wpr-beacon.min.js.map wp-rocket/assets/js/wpr-beacon.min.js.map
+    
+      - name: Move into wp-rocket folder
+        run: cd wp-rocket
+
+      - name: Update WP Rocket package.json
+        run: |
+          jq --arg version "$ROCKET_SCRIPTS_VERSION" \
+            '.devDependencies["wp-rocket-scripts"] = $version' \
+            package.json > package.json.tmp
+          mv package.json.tmp package.json
+
+      - name: Commit rocket-script update
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: update rocket-script
+          commit_user_name: WP Media GitHub Actions Bot
+    
+      - name: create pull request
+        run: |
+          prs=$(gh pr list \
+              --repo "wp-media/wp-rocket" \
+              --head 'rocket-scripts' \
+              --base 'develop' \
+              --json title \
+              --jq 'length')
+          if ((prs > 0)); then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            gh pr create -B develop -H 'rocket-scripts' --title 'Update rocket-script' --body 'Created by Github action'
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_WORKFLOW_WPROCKET_ACCESS }}    
