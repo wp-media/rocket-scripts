@@ -73,7 +73,7 @@ jobs:
           repository: wp-media/wp-rocket
           ref: develop
     
-      - name: Update rocket-script inside WP Rocket
+      - name: Update rocket-scripts files inside WP Rocket
         run: |
           cp rocket-scripts/dist/wpr-beacon.js wp-rocket/assets/js/wpr-beacon.js
           cp rocket-scripts/dist/wpr-beacon.min.js wp-rocket/assets/js/wpr-beacon.min.js
