@@ -25,6 +25,7 @@ class BeaconManager {
         }, 10000);
 
         const isGeneratedBefore = await this._getGeneratedBefore();
+        let shouldSaveResultsIntoDB = false;
 
         // OCI / LCP / ATF
         const shouldGenerateLcp = (
@@ -33,11 +34,17 @@ class BeaconManager {
         if (shouldGenerateLcp) {
             this.lcpBeacon = new BeaconLcp(this.config, this.logger);
             await this.lcpBeacon.run();
+            shouldSaveResultsIntoDB = true;
         } else {
             this.logger.logMessage('Not running BeaconLcp because data is already available');
         }
 
-        this._saveFinalResultIntoDB();
+        if (shouldSaveResultsIntoDB) {
+            this._saveFinalResultIntoDB();
+        } else {
+            this.logger.logMessage("Not saving results into DB as no beacon features ran.");
+            this._finalize();
+        }
     }
 
     async _isValidPreconditions() {
