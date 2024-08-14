@@ -126,15 +126,15 @@ describe('BeaconManager', function() {
             const result = await beacon._isValidPreconditions();
             assert.strictEqual(result, true);
         });
-        it('should return false for desktop screensize lower than threshold', async function() {
+        it('should return false for desktop width lower than threshold', async function() {
             // Mocking window properties and methods since they are used in _isValidPreconditions
             global.window = {
-                innerWidth: 10,
-                innerHeight: 5,
+                innerWidth: 50,
+                innerHeight: 600,
                 document: {
                     documentElement: {
-                        clientWidth: 10,
-                        clientHeight: 5
+                        clientWidth: 50,
+                        clientHeight: 600
                     }
                 }
             };
@@ -142,7 +142,39 @@ describe('BeaconManager', function() {
             const result = await beacon._isValidPreconditions();
             assert.strictEqual(result, false);
         });
-        it('should return true for mobile screensize larger than threshold', async function() {
+        it('should return true for desktop height lower than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 800,
+                innerHeight: 60,
+                document: {
+                    documentElement: {
+                        clientWidth: 800,
+                        clientHeight: 60
+                    }
+                }
+            };
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return true for desktop screensize lower than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 80,
+                innerHeight: 60,
+                document: {
+                    documentElement: {
+                        clientWidth: 80,
+                        clientHeight: 60
+                    }
+                }
+            };
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return false for mobile screensize larger than threshold', async function() {
             // Mocking window properties and methods since they are used in _isValidPreconditions
             global.window = {
                 innerWidth: 800,
@@ -150,6 +182,40 @@ describe('BeaconManager', function() {
                 document: {
                     documentElement: {
                         clientWidth: 800,
+                        clientHeight: 600
+                    }
+                }
+            };
+            beacon.config.is_mobile = true;
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return false for mobile width larger than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 800,
+                innerHeight: 60,
+                document: {
+                    documentElement: {
+                        clientWidth: 800,
+                        clientHeight: 60
+                    }
+                }
+            };
+            beacon.config.is_mobile = true;
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return false for mobile height larger than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 80,
+                innerHeight: 600,
+                document: {
+                    documentElement: {
+                        clientWidth: 80,
                         clientHeight: 600
                     }
                 }
