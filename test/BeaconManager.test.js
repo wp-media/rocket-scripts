@@ -1,15 +1,15 @@
 import assert from 'assert';
 import sinon from 'sinon';
-import LcpBeacon from '../src/LcpBeacon.js';
+import BeaconLcp from '../src/BeaconLcp.js';
+import BeaconManager from '../src/BeaconManager.js'
 import node_fetch from 'node-fetch';
 global.fetch = node_fetch;
 
-
-describe('LcpBeacon', function() {
+describe('BeaconManager', function() {
     let beacon;
     const config = { nonce: 'test', url: 'http://example.com', is_mobile: false };
     beforeEach(function() {
-        beacon = new LcpBeacon(config);
+        beacon = new BeaconManager(config);
     });
 
     describe('#constructor()', function() {
@@ -32,25 +32,8 @@ describe('LcpBeacon', function() {
                 }
             };
 
-            // Mock _isPageCached and _isGeneratedBefore to return false to simulate valid preconditions
-            beacon._isPageCached = () => false;
-            beacon._isGeneratedBefore = async () => false;
-
             const result = await beacon._isValidPreconditions();
             assert.strictEqual(result, true);
-        });
-    });
-    describe('#_isDuplicateImage()', function() {
-        it('should return true for a duplicate image', function() {
-            beacon.performanceImages = [{ src: 'http://example.com/image.jpg', nodeName:'img', type:'img' }];
-            const image = { src: 'http://example.com/image.jpg', nodeName:'img', type:'img' };
-            assert.strictEqual(beacon._isDuplicateImage(image), true);
-        });
-
-        it('should return false for a unique image', function() {
-            beacon.performanceImages = [{ src: 'http://example.com/image.jpg', nodeName:'img', type:'img' }];
-            const image = { src: 'http://example.com/unique.jpg', nodeName:'img', type:'img' };
-            assert.strictEqual(beacon._isDuplicateImage(image), false);
         });
     });
 
@@ -135,7 +118,8 @@ describe('LcpBeacon', function() {
             // Spy on setAttribute to ensure it's called with the correct arguments
             setAttributeSpy = sinon.spy(global.document.querySelector('[data-name="wpr-lcp-beacon"]'), 'setAttribute');
             // Prepare performanceImages or any other data needed by _saveFinalResultIntoDB
-            beacon.performanceImages = [{ src: 'http://example.com/image.jpg', label: 'lcp' }];
+            beacon.lcpBeacon = new BeaconLcp(beacon.config);
+            beacon.lcpBeacon.performanceImages = [{ src: 'http://example.com/image.jpg', label: 'lcp' }];
             beacon.errorCode = '';
             beacon.scriptTimer = new Date();
             finalizeSpy = sinon.spy(beacon, '_finalize');
@@ -161,77 +145,16 @@ describe('LcpBeacon', function() {
             const sentDataObject = formDataToObject(sentFormData);
 
             // Now you can assert the values in sentDataObject
-            assert.strictEqual(sentDataObject['action'], 'rocket_lcp');
-            assert.strictEqual(sentDataObject['rocket_lcp_nonce'], config.nonce);
+            assert.strictEqual(sentDataObject['action'], 'rocket_beacon');
+            assert.strictEqual(sentDataObject['rocket_beacon_nonce'], config.nonce);
             assert.strictEqual(sentDataObject['url'], config.url);
             assert.strictEqual(sentDataObject['is_mobile'], config.is_mobile.toString());
             // For complex types like arrays or objects, you might need to parse them before assertion
-            assert.deepStrictEqual(JSON.parse(sentDataObject['images']), beacon.performanceImages);
+            const expectedResults = JSON.parse(JSON.stringify({lcp : beacon.lcpBeacon.performanceImages}));
+            assert.deepStrictEqual(JSON.parse(sentDataObject['results']), expectedResults);
             assert.strictEqual(sentDataObject['status'], beacon._getFinalStatus());
             sinon.assert.calledOnce(finalizeSpy);
             sinon.assert.calledWith(setAttributeSpy, 'beacon-completed', 'true');
-        });
-    });
-
-    describe('#_isIntersecting', function() {
-        beforeEach(function () {
-            // Mock viewport size
-            global.window = {
-                innerWidth: 1024,
-                innerHeight: 768
-            };
-        });
-
-        it('should return true for a rectangle fully within the viewport', function () {
-            const rect = {top: 100, left: 100, bottom: 200, right: 200};
-            assert.strictEqual(beacon._isIntersecting(rect), true);
-        });
-
-        it('should return false for a rectangle entirely above the viewport', function () {
-            const rect = {top: -500, left: 100, bottom: -400, right: 200};
-            assert.strictEqual(beacon._isIntersecting(rect), false);
-        });
-
-        it('should return false for a rectangle entirely below the viewport', function () {
-            const rect = {top: 800, left: 100, bottom: 900, right: 200};
-            assert.strictEqual(beacon._isIntersecting(rect), false);
-        });
-
-        it('should return false for a rectangle entirely to the left of the viewport', function () {
-            const rect = {top: 100, left: -500, bottom: 200, right: -400};
-            assert.strictEqual(beacon._isIntersecting(rect), false);
-        });
-
-        it('should return false for a rectangle entirely to the right of the viewport', function () {
-            const rect = {top: 100, left: 1100, bottom: 200, right: 1200};
-            assert.strictEqual(beacon._isIntersecting(rect), false);
-        });
-    });
-
-    describe('#_isPageCached', function() {
-
-        it('should return true when the page is cached', function() {
-
-            global.document ={
-                documentElement: {
-                    nextSibling: {
-                        data:'<!--Debug: cached-->'
-                    }
-                }
-            };
-
-            assert.strictEqual(beacon._isPageCached(), true);
-        });
-
-        it('should return false when the page is not cached', function() {
-            global.document ={
-                documentElement: {
-                    nextSibling: {
-                        data:'test'
-                    }
-                }
-            };
-            assert.strictEqual(beacon._isPageCached(), false);
         });
     });
 
