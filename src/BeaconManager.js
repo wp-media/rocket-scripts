@@ -29,7 +29,7 @@ class BeaconManager {
 
         // OCI / LCP / ATF
         const shouldGenerateLcp = (
-            this.config.status.atf && (isGeneratedBefore === false)
+            this.config.status.atf && (isGeneratedBefore === false || isGeneratedBefore.lcp === false)
         );
         if (shouldGenerateLcp) {
             this.lcpBeacon = new BeaconLcp(this.config, this.logger);
@@ -78,7 +78,7 @@ class BeaconManager {
             body: data_check
         }).then(data => data.json());
 
-        return beacon_data_response.success;
+        return beacon_data_response.data;
         
     }
 
@@ -105,7 +105,7 @@ class BeaconManager {
         })
             .then(response => response.json())
             .then(data => {
-                this.logger.logMessage(data);
+                this.logger.logMessage(data.data.lcp);
             })
             .catch(error => {
                 this.logger.logMessage(error);
