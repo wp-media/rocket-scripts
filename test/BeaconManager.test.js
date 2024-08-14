@@ -2,19 +2,110 @@ import assert from 'assert';
 import sinon from 'sinon';
 import BeaconLcp from '../src/BeaconLcp.js';
 import BeaconManager from '../src/BeaconManager.js'
+import BeaconUtils from '../src/Utils.js';
 import node_fetch from 'node-fetch';
 global.fetch = node_fetch;
 
 describe('BeaconManager', function() {
     let beacon;
-    const config = { nonce: 'test', url: 'http://example.com', is_mobile: false };
+    const config = { nonce: 'test', url: 'http://example.com', is_mobile: false, status: {atf: true} };
     beforeEach(function() {
-        beacon = new BeaconManager(config);
+        //Deep copy of config
+        beacon = new BeaconManager(JSON.parse(JSON.stringify(config)));
     });
 
     describe('#constructor()', function() {
         it('should initialize with the given config', function() {
             assert.deepStrictEqual(beacon.config, config);
+        });
+    });
+
+    describe('#init()', function() {
+        let fetchStub;
+        let _isValidPreconditionsStub;
+        let isPageCachedStub;
+        let _finalizeStub;
+        beforeEach(function() {
+            // Stub the global fetch method
+            _isValidPreconditionsStub = sinon.stub(beacon, '_isValidPreconditions');
+            isPageCachedStub = sinon.stub(BeaconUtils, 'isPageCached');
+            _finalizeStub = sinon.stub(beacon, '_finalize');
+            fetchStub = sinon.stub(global, 'fetch');
+            
+        });
+        afterEach(function() {
+            // Restore the original fetch method
+            _isValidPreconditionsStub.restore();
+            isPageCachedStub.restore();
+            _finalizeStub.restore();
+            fetchStub.restore();
+        });
+        it('should not send AJAX calls if invalid preconditions', async function() {
+            // Mock _isValidPreconditions
+            _isValidPreconditionsStub.resolves(false);
+            await beacon.init();
+            assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
+            assert.strictEqual(fetchStub.notCalled, true);
+        });
+        it('should not send AJAX calls if not cached page', async function() {
+            // Mock _isValidPreconditions
+            _isValidPreconditionsStub.resolves(true);
+            isPageCachedStub.returns(false);
+            beacon.config.status.atf = false;
+
+            await beacon.init();
+
+            assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
+            assert.strictEqual(isPageCachedStub.calledOnce, true );
+            assert.strictEqual(fetchStub.notCalled, true);
+        });
+    });
+
+    describe('#init()', function() {
+        let fetchStub;
+        let _isValidPreconditionsStub;
+        let _getGeneratedBeforeStub;
+        let _saveFinalResultIntoDBStub;
+        let _finalizeStub;
+        beforeEach(function() {
+            // Stub the global fetch method
+            _isValidPreconditionsStub = sinon.stub(beacon, '_isValidPreconditions');
+            _getGeneratedBeforeStub = sinon.stub(beacon, '_getGeneratedBefore');
+            _saveFinalResultIntoDBStub = sinon.stub(beacon, '_saveFinalResultIntoDB');
+            _finalizeStub = sinon.stub(beacon, '_finalize');
+            fetchStub = sinon.stub(global, 'fetch');
+
+            beacon.config = config;
+            
+        });
+        afterEach(function() {
+            // Restore the original fetch method
+            _isValidPreconditionsStub.restore();
+            _getGeneratedBeforeStub.restore();
+            _saveFinalResultIntoDBStub.restore()
+            _finalizeStub.restore();
+            fetchStub.restore();
+        });
+        it('should not send AJAX save data if data already generated', async function() {
+            // Mock _isValidPreconditions
+            _isValidPreconditionsStub.resolves(true);
+            _getGeneratedBeforeStub.resolves(true);
+
+            await beacon.init();
+            
+            assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
+            assert.strictEqual(_saveFinalResultIntoDBStub.notCalled, true);
+        });
+        it('should not send AJAX save data if no features ran', async function() {
+            // Mock _isValidPreconditions
+            _isValidPreconditionsStub.resolves(true);
+            _getGeneratedBeforeStub.resolves(false);
+            beacon.config.status.atf = false;
+
+            await beacon.init();
+            
+            assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
+            assert.strictEqual(_saveFinalResultIntoDBStub.notCalled, true);
         });
     });
 
