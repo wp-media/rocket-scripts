@@ -8,7 +8,7 @@ global.fetch = node_fetch;
 
 describe('BeaconManager', function() {
     let beacon;
-    const config = { nonce: 'test', url: 'http://example.com', is_mobile: false, status: {atf: true} };
+    const config = { nonce: 'test', url: 'http://example.com', is_mobile: false, status: {atf: true}, width_threshold: 100, height_threshold: 100 };
     beforeEach(function() {
         //Deep copy of config
         beacon = new BeaconManager(JSON.parse(JSON.stringify(config)));
@@ -110,7 +110,7 @@ describe('BeaconManager', function() {
     });
 
     describe('#_isValidPreconditions()', function() {
-        it('should return true for valid preconditions', async function() {
+        it('should return true for desktop screensize larger than threshold', async function() {
             // Mocking window properties and methods since they are used in _isValidPreconditions
             global.window = {
                 innerWidth: 800,
@@ -122,6 +122,56 @@ describe('BeaconManager', function() {
                     }
                 }
             };
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, true);
+        });
+        it('should return false for desktop screensize lower than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 10,
+                innerHeight: 5,
+                document: {
+                    documentElement: {
+                        clientWidth: 10,
+                        clientHeight: 5
+                    }
+                }
+            };
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return true for mobile screensize larger than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 800,
+                innerHeight: 600,
+                document: {
+                    documentElement: {
+                        clientWidth: 800,
+                        clientHeight: 600
+                    }
+                }
+            };
+            beacon.config.is_mobile = true;
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return false for mobile screensize lower than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 10,
+                innerHeight: 5,
+                document: {
+                    documentElement: {
+                        clientWidth: 10,
+                        clientHeight: 5
+                    }
+                }
+            };
+            beacon.config.is_mobile = true;
 
             const result = await beacon._isValidPreconditions();
             assert.strictEqual(result, true);
