@@ -1,6 +1,6 @@
 {
   "name": "wp-rocket-scripts",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Rocket main scripts packages",
   "type": "module",
   "main": "index.js",
