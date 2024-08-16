@@ -2,14 +2,16 @@ import assert from 'assert';
 import sinon from 'sinon';
 import BeaconLcp from '../src/BeaconLcp.js';
 import BeaconManager from '../src/BeaconManager.js'
+import BeaconUtils from '../src/Utils.js';
 import node_fetch from 'node-fetch';
 global.fetch = node_fetch;
 
 describe('BeaconManager', function() {
     let beacon;
-    const config = { nonce: 'test', url: 'http://example.com', is_mobile: false };
+    const config = { nonce: 'test', url: 'http://example.com', is_mobile: false, status: {atf: true}, width_threshold: 100, height_threshold: 100 };
     beforeEach(function() {
-        beacon = new BeaconManager(config);
+        //Deep copy of config
+        beacon = new BeaconManager(JSON.parse(JSON.stringify(config)));
     });
 
     describe('#constructor()', function() {
@@ -18,8 +20,97 @@ describe('BeaconManager', function() {
         });
     });
 
+    describe('#init()', function() {
+        let fetchStub;
+        let _isValidPreconditionsStub;
+        let isPageCachedStub;
+        let _finalizeStub;
+        beforeEach(function() {
+            // Stub the global fetch method
+            _isValidPreconditionsStub = sinon.stub(beacon, '_isValidPreconditions');
+            isPageCachedStub = sinon.stub(BeaconUtils, 'isPageCached');
+            _finalizeStub = sinon.stub(beacon, '_finalize');
+            fetchStub = sinon.stub(global, 'fetch');
+            
+        });
+        afterEach(function() {
+            // Restore the original fetch method
+            _isValidPreconditionsStub.restore();
+            isPageCachedStub.restore();
+            _finalizeStub.restore();
+            fetchStub.restore();
+        });
+        it('should not send AJAX calls if invalid preconditions', async function() {
+            // Mock _isValidPreconditions
+            _isValidPreconditionsStub.resolves(false);
+            await beacon.init();
+            assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
+            assert.strictEqual(fetchStub.notCalled, true);
+        });
+        it('should not send AJAX calls if not cached page', async function() {
+            // Mock _isValidPreconditions
+            _isValidPreconditionsStub.resolves(true);
+            isPageCachedStub.returns(false);
+            beacon.config.status.atf = false;
+
+            await beacon.init();
+
+            assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
+            assert.strictEqual(isPageCachedStub.calledOnce, true );
+            assert.strictEqual(fetchStub.notCalled, true);
+        });
+    });
+
+    describe('#init()', function() {
+        let fetchStub;
+        let _isValidPreconditionsStub;
+        let _getGeneratedBeforeStub;
+        let _saveFinalResultIntoDBStub;
+        let _finalizeStub;
+        beforeEach(function() {
+            // Stub the global fetch method
+            _isValidPreconditionsStub = sinon.stub(beacon, '_isValidPreconditions');
+            _getGeneratedBeforeStub = sinon.stub(beacon, '_getGeneratedBefore');
+            _saveFinalResultIntoDBStub = sinon.stub(beacon, '_saveFinalResultIntoDB');
+            _finalizeStub = sinon.stub(beacon, '_finalize');
+            fetchStub = sinon.stub(global, 'fetch');
+
+            beacon.config = config;
+            
+        });
+        afterEach(function() {
+            // Restore the original fetch method
+            _isValidPreconditionsStub.restore();
+            _getGeneratedBeforeStub.restore();
+            _saveFinalResultIntoDBStub.restore()
+            _finalizeStub.restore();
+            fetchStub.restore();
+        });
+        it('should not send AJAX save data if data already generated', async function() {
+            // Mock _isValidPreconditions
+            _isValidPreconditionsStub.resolves(true);
+            _getGeneratedBeforeStub.resolves(true);
+
+            await beacon.init();
+            
+            assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
+            assert.strictEqual(_saveFinalResultIntoDBStub.notCalled, true);
+        });
+        it('should not send AJAX save data if no features ran', async function() {
+            // Mock _isValidPreconditions
+            _isValidPreconditionsStub.resolves(true);
+            _getGeneratedBeforeStub.resolves(false);
+            beacon.config.status.atf = false;
+
+            await beacon.init();
+            
+            assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
+            assert.strictEqual(_saveFinalResultIntoDBStub.notCalled, true);
+        });
+    });
+
     describe('#_isValidPreconditions()', function() {
-        it('should return true for valid preconditions', async function() {
+        it('should return true for desktop screensize larger than threshold', async function() {
             // Mocking window properties and methods since they are used in _isValidPreconditions
             global.window = {
                 innerWidth: 800,
@@ -31,6 +122,122 @@ describe('BeaconManager', function() {
                     }
                 }
             };
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, true);
+        });
+        it('should return false for desktop width lower than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 50,
+                innerHeight: 600,
+                document: {
+                    documentElement: {
+                        clientWidth: 50,
+                        clientHeight: 600
+                    }
+                }
+            };
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return true for desktop height lower than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 800,
+                innerHeight: 60,
+                document: {
+                    documentElement: {
+                        clientWidth: 800,
+                        clientHeight: 60
+                    }
+                }
+            };
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return true for desktop screensize lower than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 80,
+                innerHeight: 60,
+                document: {
+                    documentElement: {
+                        clientWidth: 80,
+                        clientHeight: 60
+                    }
+                }
+            };
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return false for mobile screensize larger than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 800,
+                innerHeight: 600,
+                document: {
+                    documentElement: {
+                        clientWidth: 800,
+                        clientHeight: 600
+                    }
+                }
+            };
+            beacon.config.is_mobile = true;
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return false for mobile width larger than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 800,
+                innerHeight: 60,
+                document: {
+                    documentElement: {
+                        clientWidth: 800,
+                        clientHeight: 60
+                    }
+                }
+            };
+            beacon.config.is_mobile = true;
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return false for mobile height larger than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 80,
+                innerHeight: 600,
+                document: {
+                    documentElement: {
+                        clientWidth: 80,
+                        clientHeight: 600
+                    }
+                }
+            };
+            beacon.config.is_mobile = true;
+
+            const result = await beacon._isValidPreconditions();
+            assert.strictEqual(result, false);
+        });
+        it('should return false for mobile screensize lower than threshold', async function() {
+            // Mocking window properties and methods since they are used in _isValidPreconditions
+            global.window = {
+                innerWidth: 10,
+                innerHeight: 5,
+                document: {
+                    documentElement: {
+                        clientWidth: 10,
+                        clientHeight: 5
+                    }
+                }
+            };
+            beacon.config.is_mobile = true;
 
             const result = await beacon._isValidPreconditions();
             assert.strictEqual(result, true);
