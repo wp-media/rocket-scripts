@@ -207,7 +207,7 @@ class BeaconLcp {
             elementInfo.type === "picture";
 
         return (isImageOrVideo || isBgImageOrPicture) &&
-            this.performanceImages.some(item => item.src === elementInfo.src);
+          this.performanceImages.some(item => item.src === elementInfo.src);
     }
 
     getResults() {
