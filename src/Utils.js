@@ -6,9 +6,9 @@ class BeaconUtils {
         const screenHeight = window.innerHeight || document.documentElement.clientHeight;
 
         const isNotValidForMobile = is_mobile &&
-            (screenWidth > threshold.width || screenHeight > threshold.height);
+          (screenWidth > threshold.width || screenHeight > threshold.height);
         const isNotValidForDesktop = !is_mobile &&
-            (screenWidth < threshold.width || screenHeight < threshold.height);
+          (screenWidth < threshold.width || screenHeight < threshold.height);
 
         return isNotValidForMobile || isNotValidForDesktop;
     }

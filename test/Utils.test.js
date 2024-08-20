@@ -1,5 +1,4 @@
 import assert from 'assert';
-import sinon from 'sinon';
 import BeaconUtils from '../src/Utils.js';
 import node_fetch from 'node-fetch';
 global.fetch = node_fetch;
