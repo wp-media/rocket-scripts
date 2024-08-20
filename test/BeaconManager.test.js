@@ -398,7 +398,9 @@ describe('BeaconManager', function() {
             // Spy on clearTimeout to ensure it's called
             clearTimeoutSpy = sinon.spy(global, 'clearTimeout');
             // Mock the infiniteLoopId to simulate a timeout being set
-            beacon.infiniteLoopId = setTimeout(() => {}, 1000);
+            beacon.infiniteLoopId = setTimeout(() => {
+                throw new Error('Timeout during test.');
+            }, 10000);
         });
 
         afterEach(function() {
@@ -421,7 +423,7 @@ function formDataToObject(formData) {
     const object = {};
     formData.forEach((value, key) => {
         // Check if the object already contains the key
-        if (object.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(object, key)) {
             // If it's an array, push the new value
             if (Array.isArray(object[key])) {
                 object[key].push(value);
