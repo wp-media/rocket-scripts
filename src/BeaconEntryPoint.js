@@ -21,4 +21,4 @@ import BeaconManager from "./BeaconManager.js";
     });
 } )( window.rocket_beacon_data );
 
-module.exports = BeaconManager;
+export default BeaconManager;
