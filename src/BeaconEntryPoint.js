@@ -20,3 +20,5 @@ import BeaconManager from "./BeaconManager.js";
         }, rocket_beacon_data.delay);
     });
 } )( window.rocket_beacon_data );
+
+export default BeaconManager;

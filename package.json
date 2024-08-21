@@ -1,14 +1,15 @@
 {
   "name": "wp-rocket-scripts",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Rocket main scripts packages",
   "type": "module",
-  "main": "index.js",
+  "main": "./src/BeaconEntryPoint.js",
   "directories": {
     "test": "tests"
   },
   "scripts": {
     "test": "mocha test",
+    "coverage": "c8 --reporter=lcov npm run test",
     "build:unmin": "esbuild ./src/BeaconEntryPoint.js --bundle --outfile=dist/wpr-beacon.js",
     "build:min": "esbuild ./dist/wpr-beacon.js --allow-overwrite --minify --sourcemap --outfile=dist/wpr-beacon.min.js",
     "build": "npm run build:unmin && npm run build:min"
@@ -24,6 +25,7 @@
   },
   "homepage": "https://github.com/wp-media/rocket-scripts#readme",
   "devDependencies": {
+    "c8": "^10.1.2",
     "esbuild": "0.23.0",
     "mocha": "^10.6.0",
     "node-fetch": "^3.3.2",

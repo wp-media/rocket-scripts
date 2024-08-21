@@ -26,43 +26,38 @@ npm run build
 
 This is to build both minified and not minified versions.
 
-# Updating WP Rocket
+## Updating WP Rocket
 
-## How to import changes from rocket-scripts
+### How to import changes from rocket-scripts
 
 The following steps must be followed when you need to test a new version of the scripts within WP Rocket plugin, or to submit a new version into WP Rocket through a PR.
 
 1. Create a branch and PR for your changes in this repository.
 2. Check out wp rocket plugin on branch develop (or a dedicated branch for the issue to test if needed)
 3. Edit `package.json` inside WP Rocket plugin repository to change the targeted version of wp-rocket-scripts:
-```
-"wp-rocket-scripts": "github:wp-media/rocket-scripts#branch-name",
-```
+    ```
+    "wp-rocket-scripts": "github:wp-media/rocket-scripts#branch-name",
+    ```
 
-This syntax allows to target a specific branch as dependency. For instance:
+    This syntax allows to target a specific branch as dependency. For instance:
 
-```
-"wp-rocket-scripts": "github:wp-media/rocket-scripts#enhancement/6741-adjust-beacon-timeout",
-```
-
+    ```
+    "wp-rocket-scripts": "github:wp-media/rocket-scripts#enhancement/6741-adjust-beacon-timeout",
+    ```
 4. Remove `node_modules` directory and `package-lock.json` file.
 5. Run the command
-```
-npm install
-```
-
-You should see the targeted version of the beacon in your working directory `/node_modules/wp-rocket-scripts/dist`.
-
+    ```
+    npm install
+    ```
+    You should see the targeted version of the beacon in your working directory `/node_modules/wp-rocket-scripts/dist`.
 6. Use the gulp task there to generate the beacon script:
-```
-npm run gulp build:js:beacon
-```
-
-You should see the new beacon files in `assets/js`.
-
+    ```
+    npm run gulp build:js:beacon
+    ```
+    You should see the new beacon files in `assets/js`.
 7. Compile the plugin zip as usual.
 
-## How to release a new version
+### How to release a new version
 
 When a new WP Rocket release occurs with a new version of rocket-scripts, or when new developments are available on rocket-scripts develop without breaking compatibility with WP Rocket, a new rocket-scripts version must be created. To do so:
 
