@@ -82,8 +82,6 @@ class BeaconLrc {
                 this.lazyRenderElements.push( hash );
             }
 
-            this.lazyRenderElements.push({ element, depth, distance });
-
             const style = distance > 1800 ? 'color: green;' : distance === 0 ? 'color: red;' : '';
             console.log(`%c${'\t'.repeat(depth)}${element.tagName} (Depth: ${depth}, Distance from viewport top: ${distance}px)`, style);
 
