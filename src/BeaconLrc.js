@@ -34,7 +34,8 @@ class BeaconLrc {
         return validElements.map(element => ({
             element: element,
             depth: this._getElementDepth(element),
-            distance: this._getElementDistance(element)
+            distance: this._getElementDistance(element),
+            hash: this._getLocationHash(element)
         }));
     }
 
@@ -73,9 +74,12 @@ class BeaconLrc {
     }
 
     _processElements(elements) {
-        elements.forEach(({ element, depth, distance }) => {
+        elements.forEach(({ element, depth, distance, hash }) => {
             if (this._shouldSkipElement(element, this.config.exclusions || [])) {
                 return;
+            }
+            if ( 'No hash detected' !== hash ) {
+                this.lazyRenderElements.push( hash );
             }
 
             this.lazyRenderElements.push({ element, depth, distance });
@@ -86,8 +90,7 @@ class BeaconLrc {
             const xpath = this._getXPath(element);
             console.log(`%c${'\t'.repeat(depth)}Xpath: ${xpath}`, style);
 
-            const locationhash = this._getLocationHash(element);
-            console.log(`%c${'\t'.repeat(depth)}Location hash: ${locationhash}`, style);
+            console.log(`%c${'\t'.repeat(depth)}Location hash: ${hash}`, style);
 
             console.log(`%c${'\t'.repeat(depth)}Dimensions Client Height: ${element.clientHeight}`, style);
         });
