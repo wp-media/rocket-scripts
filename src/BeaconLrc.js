@@ -83,7 +83,7 @@ class BeaconLrc {
                 return;
             }
 
-            const style = (depth === 2 && distance >= this.config.height_threshold) || (element.parentElement && this._getElementDistance(element.parentElement) === 0 && distance >= this.config.height_threshold) ? "color: green;" : distance === 0 ? "color: red;" : "";
+            const style = (depth === 2 && distance >= 1800) || (element.parentElement && this._getElementDistance(element.parentElement) === 0 && distance >= 1800) ? "color: green;" : distance === 0 ? "color: red;" : "";
             console.log(`%c${'\t'.repeat(depth)}${element.tagName} (Depth: ${depth}, Distance from viewport top: ${distance}px)`, style);
 
             const xpath = this._getXPath(element);
@@ -93,15 +93,15 @@ class BeaconLrc {
 
             console.log(`%c${'\t'.repeat(depth)}Dimensions Client Height: ${element.clientHeight}`, style);
 
-            // Check if the element is a parent at depth 2 with distance >= height threshold
-            if (depth === 2 && distance >= this.config.height_threshold) {
+            // Check if the element is a parent at depth 2 with distance >= 1800
+            if (depth === 2 && distance >= 1800) {
                 this.lazyRenderElements.push(hash);
-                console.log(`Parent element at depth 2 with distance >= ${this.config.height_threshold} pushed with hash: ${hash}`);
+                console.log(`Parent element at depth 2 with distance >= 1800 pushed with hash: ${hash}`);
                 return;
             }
     
             // Check parent element with distance of 0 but children is within threshold.
-            if (element.parentElement && this._getElementDistance(element.parentElement) === 0 && distance >= this.config.height_threshold) {
+            if (element.parentElement && this._getElementDistance(element.parentElement) === 0 && distance >= 1800) {
                 this.lazyRenderElements.push(hash); // Push the child's hash
                 console.log(`Child element pushed with hash: ${hash}`);
             }
