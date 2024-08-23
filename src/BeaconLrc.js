@@ -83,27 +83,27 @@ class BeaconLrc {
                 return;
             }
 
-            const style = (depth === 2 && distance >= 1800) || (element.parentElement && this._getElementDistance(element.parentElement) === 0 && distance >= 1800) ? "color: green;" : distance === 0 ? "color: red;" : "";
-            console.log(`%c${'\t'.repeat(depth)}${element.tagName} (Depth: ${depth}, Distance from viewport top: ${distance}px)`, style);
+            const color = (depth === 2 && distance >= 1800) || (element.parentElement && this._getElementDistance(element.parentElement) === 0 && distance >= 1800) ? "green" : distance === 0 ? "red" : "";
+            this.logger.logColoredMessage( `${'\t'.repeat(depth)}${element.tagName} (Depth: ${depth}, Distance from viewport top: ${distance}px)`, color );
 
-            const xpath = this._getXPath(element);
-            console.log(`%c${'\t'.repeat(depth)}Xpath: ${xpath}`, style);
+            //const xpath = this._getXPath(element);
+            //console.log(`%c${'\t'.repeat(depth)}Xpath: ${xpath}`, style);
 
-            console.log(`%c${'\t'.repeat(depth)}Location hash: ${hash}`, style);
+            this.logger.logColoredMessage(`${'\t'.repeat(depth)}Location hash: ${hash}`, color);
 
-            console.log(`%c${'\t'.repeat(depth)}Dimensions Client Height: ${element.clientHeight}`, style);
+            this.logger.logColoredMessage(`${'\t'.repeat(depth)}Dimensions Client Height: ${element.clientHeight}`, color);
 
             // Check if the element is a parent at depth 2 with distance >= 1800
             if (depth === 2 && distance >= 1800) {
                 this.lazyRenderElements.push(hash);
-                console.log(`Parent element at depth 2 with distance >= 1800 pushed with hash: ${hash}`);
+                this.logger.logMessage(`Parent element at depth 2 with distance >= 1800 pushed with hash: ${hash}`);
                 return;
             }
     
             // Check parent element with distance of 0 but children is within threshold.
             if (element.parentElement && this._getElementDistance(element.parentElement) === 0 && distance >= 1800) {
                 this.lazyRenderElements.push(hash); // Push the child's hash
-                console.log(`Child element pushed with hash: ${hash}`);
+                this.logger.logMessage(`Child element pushed with hash: ${hash}`);
             }
         });
     }
