@@ -1,4 +1,4 @@
-name: Run Tests
+name: Test Coverage to Codacy
 
 on:
     push:
@@ -29,7 +29,7 @@ jobs:
                   node-version: ${{ matrix.node-version }}
             - name: Install dependencies
               run: npm install
-            - name: Run tests
+            - name: Run tests and coverage
               run: npm run coverage
             - name: Run codacy-coverage-reporter
               uses: codacy/codacy-coverage-reporter-action@v1
