@@ -23,7 +23,7 @@ class BeaconLrc {
     }
 
     _getLazyRenderElements() {
-        const elements = document.querySelectorAll(this.config.lrc_elements);
+        const elements = document.querySelectorAll('[data-rocket-location-hash]');
 
         if (elements.length <= 0) {
             return [];
