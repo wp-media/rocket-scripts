@@ -26,11 +26,11 @@ describe('BeaconLrc', function() {
             return element.dataset.rocketLocationHash === 'hash3';
         };
 
-        BeaconLrc.prototype._getElementDepth = function(element) {
+        BeaconLrc.prototype._getElementDepth = function() {
             return 1;
         };
 
-        BeaconLrc.prototype._getElementDistance = function(element) {
+        BeaconLrc.prototype._getElementDistance = function() {
             return 100; // Mocked distance updated to 100
         };
 
@@ -39,7 +39,14 @@ describe('BeaconLrc', function() {
         };
 
         const config = { skipStrings: ['memex'] };
-        const logger = { logMessage: () => {}, logColoredMessage: () => {} };
+        const logger = {
+            logMessage: (message) => {
+                console.log(`Log: ${message}`);
+            },
+            logColoredMessage: (message, color) => {
+                console.log(`%c${message}`, `color: ${color}`);
+            }
+        };
         beaconLrc = new BeaconLrc(config, logger);
 
         mockElement = {
