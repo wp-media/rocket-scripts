@@ -83,7 +83,7 @@ describe('BeaconLrc', function() {
     });
 
     it('should return correct distance', () => {
-        BeaconLrc.prototype._getElementDistance = function(element) {
+        BeaconLrc.prototype._getElementDistance = function() {
             return 300; // Mocked distance updated to 300 for this test
         };
         const distance = beaconLrc._getElementDistance(mockElement);
