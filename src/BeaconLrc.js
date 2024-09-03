@@ -2,6 +2,7 @@
 
 import BeaconUtils from "./Utils.js";
 import BeaconManager from "./BeaconManager.js";
+import Utils from "./Utils.js";
 
 class BeaconLrc {
     constructor(config, logger) {
@@ -52,7 +53,7 @@ class BeaconLrc {
     _getElementDistance(element) {
         const rect = element.getBoundingClientRect();
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        return Math.max(0, rect.top + scrollTop);
+        return Math.max(0, rect.top + scrollTop - Utils.getScreenHeight());
     }
 
     _skipElement(element) {
