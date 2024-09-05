@@ -1,7 +1,6 @@
 'use strict';
 
 import BeaconUtils from "./Utils.js";
-import BeaconManager from "./BeaconManager.js";
 
 class BeaconLrc {
     constructor(config, logger) {
@@ -52,7 +51,7 @@ class BeaconLrc {
     _getElementDistance(element) {
         const rect = element.getBoundingClientRect();
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        return Math.max(0, rect.top + scrollTop);
+        return Math.max(0, rect.top + scrollTop - BeaconUtils.getScreenHeight());
     }
 
     _skipElement(element) {
@@ -83,10 +82,10 @@ class BeaconLrc {
                 return;
             }
 
-            const can_push_hash = element.parentElement && this._getElementDistance(element.parentElement) < this.config.lrc_threshold && distance > this.config.lrc_threshold;
+            const can_push_hash = element.parentElement && this._getElementDistance(element.parentElement) < this.config.lrc_threshold && distance >= this.config.lrc_threshold;
 
             const color = can_push_hash ? "green" : distance === 0 ? "red" : "";
-            this.logger.logColoredMessage( `${'\t'.repeat(depth)}${element.tagName} (Depth: ${depth}, Distance from viewport top: ${distance}px)`, color );
+            this.logger.logColoredMessage( `${'\t'.repeat(depth)}${element.tagName} (Depth: ${depth}, Distance from viewport bottom: ${distance}px)`, color );
 
             //const xpath = this._getXPath(element);
             //console.log(`%c${'\t'.repeat(depth)}Xpath: ${xpath}`, style);
