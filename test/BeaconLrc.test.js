@@ -219,4 +219,17 @@ describe('BeaconLrc', function() {
 
         beaconMock.restore();
     });
+
+    it('_getXPath', () => {
+        const _getElementXPathStub = sinon.stub(beaconLrc, '_getElementXPath');
+        _getElementXPathStub.returns('test');
+
+        // No element
+        assert.strictEqual(beaconLrc._getXPath(), 'test');
+
+        // No ID
+        assert.strictEqual(beaconLrc._getXPath({id: 'testID'}), '//*[@id="testID"]');
+
+        _getElementXPathStub.restore();
+    });
 });

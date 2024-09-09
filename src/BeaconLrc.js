@@ -102,7 +102,7 @@ class BeaconLrc {
     }
 
     _getXPath(element) {
-        if (element.id !== "") {
+        if (element && element.id !== "") {
             return `//*[@id="${element.id}"]`;
         }
 
