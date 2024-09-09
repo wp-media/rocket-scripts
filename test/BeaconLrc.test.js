@@ -1,41 +1,65 @@
 import assert from 'assert';
 import BeaconLrc from '../src/BeaconLrc.js';
+import sinon from "sinon";
 
 describe('BeaconLrc', function() {
     let beaconLrc;
     let mockElement;
+    let mockElements;
 
     beforeEach(function() {
+        mockElements = [
+            {
+                getBoundingClientRect: () => {
+                    return {
+                        top : 0,
+                    };
+                },
+                getAttribute: () => 'hash1',
+                hasAttribute: () => true,
+                dataset: { rocketLocationHash: 'hash1' }
+            },
+            {
+                getBoundingClientRect: () => {
+                    return {
+                        top : 0,
+                    };
+                },
+                getAttribute: () => 'hash2',
+                hasAttribute: () => true,
+                dataset: { rocketLocationHash: 'hash2' }
+            },
+            {
+                getBoundingClientRect: () => {
+                    return {
+                        top : 200,
+                    };
+                },
+                getAttribute: () => 'hash3',
+                hasAttribute: () => true,
+                dataset: { rocketLocationHash: 'hash3' }
+            },
+            {
+                getBoundingClientRect: () => {
+                    return {
+                        top : -300,
+                    };
+                },
+                getAttribute: () => 'hash4',
+                hasAttribute: () => true,
+                dataset: { rocketLocationHash: 'hash4' }
+            },
+        ];
+
         // Mocking document.querySelectorAll
         global.document = {
             querySelectorAll: (selector) => {
                 if (selector === '[data-rocket-location-hash]') {
-                    return [
-                        { getAttribute: () => 'hash1', dataset: { rocketLocationHash: 'hash1' } },
-                        { getAttribute: () => 'hash2', dataset: { rocketLocationHash: 'hash2' } },
-                        { getAttribute: () => 'hash3', dataset: { rocketLocationHash: 'hash3' } }
-                    ];
+                    return mockElements;
                 }
                 return [];
             },
             documentElement: { scrollTop: 100 } // Ensure documentElement is part of the mock
-        };
-
-        // Mocking the methods of BeaconLrc
-        BeaconLrc.prototype._skipElement = function(element) {
-            return element.dataset.rocketLocationHash === 'hash3';
-        };
-
-        BeaconLrc.prototype._getElementDepth = function() {
-            return 1;
-        };
-
-        BeaconLrc.prototype._getElementDistance = function() {
-            return 100; // Mocked distance updated to 100
-        };
-
-        BeaconLrc.prototype._getLocationHash = function(element) {
-            return element.dataset.rocketLocationHash;
         };
 
         const config = { skipStrings: ['memex'] };
@@ -49,10 +73,6 @@ describe('BeaconLrc', function() {
         };
         beaconLrc = new BeaconLrc(config, logger);
 
-        mockElement = {
-            getBoundingClientRect: () => ({ top: 200 }),
-        };
-
         // Mocking window.pageYOffset
         global.window = { pageYOffset: 100 };
     });
@@ -62,7 +82,25 @@ describe('BeaconLrc', function() {
         delete global.document;
     });
 
+    it('should return empty elements', function() {
+        global.document = {
+            querySelectorAll: (selector) => {
+                return [];
+            },
+        };
+        const elements = beaconLrc._getLazyRenderElements();
+        assert(Array.isArray(elements));
+        assert.strictEqual(elements.length, 0);
+    });
+
     it('should return valid elements with depth, distance, and hash', function() {
+        const _getElementDepthStub = sinon.stub(beaconLrc, '_getElementDepth');
+        _getElementDepthStub.returns(1);
+
+        const _skipElementStub = sinon.stub(beaconLrc, '_skipElement');
+        _skipElementStub.withArgs(mockElements[2]).returns(true);
+        _skipElementStub.withArgs(mockElements[3]).returns(true);
+
         const elements = beaconLrc._getLazyRenderElements();
         assert(Array.isArray(elements));
         assert.strictEqual(elements.length, 2);
@@ -74,30 +112,58 @@ describe('BeaconLrc', function() {
         assert.strictEqual(elements[1].hash, 'hash2');
         assert.strictEqual(elements[1].depth, 1);
         assert.strictEqual(elements[1].distance, 100);
+
+        _getElementDepthStub.restore();
+        _skipElementStub.restore();
     });
 
     it('should skip elements based on config skipStrings', function() {
+        const _getElementDepthStub = sinon.stub(beaconLrc, '_getElementDepth');
+        _getElementDepthStub.returns(1);
+
+        const _skipElementStub = sinon.stub(beaconLrc, '_skipElement');
+        _skipElementStub.withArgs(mockElements[2]).returns(true);
+        _skipElementStub.withArgs(mockElements[3]).returns(true);
+
         const elements = beaconLrc._getLazyRenderElements();
         const skippedElement = elements.find(el => el.hash === 'hash3');
         assert.strictEqual(skippedElement, undefined);
+
+        _getElementDepthStub.restore();
+        _skipElementStub.restore();
     });
 
     it('should return correct distance', () => {
-        BeaconLrc.prototype._getElementDistance = function() {
-            return 300; // Mocked distance updated to 300 for this test
-        };
-        const distance = beaconLrc._getElementDistance(mockElement);
+        const distance = beaconLrc._getElementDistance(mockElements[2]);
         assert.strictEqual(distance, 300);
     });
 
     it('should return 0 if distance is negative', () => {
-        BeaconLrc.prototype._getElementDistance = function(element) {
-            const rect = element.getBoundingClientRect();
-            const distance = rect.top + global.window.pageYOffset - global.document.documentElement.scrollTop;
-            return distance < 0 ? 0 : distance;
-        };
-        mockElement.getBoundingClientRect = () => ({ top: -300 });
-        const distance = beaconLrc._getElementDistance(mockElement);
+        const distance = beaconLrc._getElementDistance(mockElements[3]);
         assert.strictEqual(distance, 0);
+    });
+
+    it('should return correct depth', () => {
+        const elementWithNoParent = {
+            parentElement: null,
+        };
+        assert.strictEqual(beaconLrc._getElementDepth(elementWithNoParent), 0);
+
+        const elementWithoneParent = {
+            parentElement: {
+                tagName: 'DIV',
+            },
+        };
+        assert.strictEqual(beaconLrc._getElementDepth(elementWithoneParent), 1);
+
+        const elementWithTwoLevels = {
+            parentElement: {
+                tagName: 'DIV',
+                parentElement: {
+                    tagName: 'DIV',
+                },
+            },
+        };
+        assert.strictEqual(beaconLrc._getElementDepth(elementWithTwoLevels), 2);
     });
 });
