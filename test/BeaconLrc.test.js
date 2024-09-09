@@ -104,12 +104,10 @@ describe('BeaconLrc', function() {
         assert(Array.isArray(elements));
         assert.strictEqual(elements.length, 2);
 
-        console.log(elements[0].hash);
         assert.strictEqual(elements[0].hash, 'hash1');
         assert.strictEqual(elements[0].depth, 1);
         assert.strictEqual(elements[0].distance, 0);
 
-        console.log(elements[1].hash);
         assert.strictEqual(elements[1].hash, 'hash2');
         assert.strictEqual(elements[1].depth, 1);
         assert.strictEqual(elements[1].distance, 400);
@@ -186,5 +184,39 @@ describe('BeaconLrc', function() {
         assert.strictEqual(beaconLrc._skipElement({id: 'AnyId'}), true);
 
         configStub.restore();
+    });
+
+    it('run with empty elements', async () => {
+        const beaconMock = sinon.mock(beaconLrc);
+
+        // Empty elements
+        beaconMock.expects("_getLazyRenderElements").returns('');
+        beaconMock.expects("_processElements").withArgs('').never();
+        await beaconLrc.run();
+
+        beaconMock.restore();
+    });
+
+    it('run with thrown errors', async () => {
+        const beaconMock = sinon.mock(beaconLrc);
+
+        // Throws error
+        beaconMock.expects("_getLazyRenderElements").throws('test error');
+        beaconMock.expects("_processElements").never();
+        await beaconLrc.run();
+        beaconMock.verify();
+
+        beaconMock.restore();
+    });
+
+    it('run with valid elements', async () => {
+        const beaconMock = sinon.mock(beaconLrc);
+
+        // Valid elements
+        beaconMock.expects("_getLazyRenderElements").returns(['test']);
+        beaconMock.expects("_processElements").withArgs(['test']).once();
+        await beaconLrc.run();
+
+        beaconMock.restore();
     });
 });
