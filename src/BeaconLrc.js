@@ -52,6 +52,7 @@ class BeaconLrc {
     _getElementDistance(element) {
         const rect = element.getBoundingClientRect();
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        console.log( rect, scrollTop );
         return Math.max(0, rect.top + scrollTop);
     }
 
