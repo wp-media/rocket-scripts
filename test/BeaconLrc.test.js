@@ -21,7 +21,7 @@ describe('BeaconLrc', function() {
             {
                 getBoundingClientRect: () => {
                     return {
-                        top : 0,
+                        top : 800,
                     };
                 },
                 getAttribute: () => 'hash2',
@@ -31,7 +31,7 @@ describe('BeaconLrc', function() {
             {
                 getBoundingClientRect: () => {
                     return {
-                        top : 200,
+                        top : 1000,
                     };
                 },
                 getAttribute: () => 'hash3',
@@ -73,7 +73,7 @@ describe('BeaconLrc', function() {
         beaconLrc = new BeaconLrc(config, logger);
 
         // Mocking window.pageYOffset
-        global.window = { pageYOffset: 100 };
+        global.window = { pageYOffset: 100, innerHeight: 500 };
     });
 
     afterEach(function() {
@@ -104,14 +104,15 @@ describe('BeaconLrc', function() {
         assert(Array.isArray(elements));
         assert.strictEqual(elements.length, 2);
 
+        console.log(elements[0].hash);
         assert.strictEqual(elements[0].hash, 'hash1');
         assert.strictEqual(elements[0].depth, 1);
-        console.log( elements );
-        assert.strictEqual(elements[0].distance, 100);
+        assert.strictEqual(elements[0].distance, 0);
 
+        console.log(elements[1].hash);
         assert.strictEqual(elements[1].hash, 'hash2');
         assert.strictEqual(elements[1].depth, 1);
-        assert.strictEqual(elements[1].distance, 100);
+        assert.strictEqual(elements[1].distance, 400);
 
         _getElementDepthStub.restore();
         _skipElementStub.restore();
@@ -135,7 +136,7 @@ describe('BeaconLrc', function() {
 
     it('should return correct distance', () => {
         const distance = beaconLrc._getElementDistance(mockElements[2]);
-        assert.strictEqual(distance, 300);
+        assert.strictEqual(distance, 600);
     });
 
     it('should return 0 if distance is negative', () => {
