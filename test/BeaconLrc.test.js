@@ -167,4 +167,24 @@ describe('BeaconLrc', function() {
         };
         assert.strictEqual(beaconLrc._getElementDepth(elementWithTwoLevels), 2);
     });
+
+    it('_skipElement', () => {
+        // Empty config
+        const configStub = sinon.stub(beaconLrc, 'config');
+        configStub.value({});
+        assert.strictEqual(beaconLrc._skipElement({id: 'anyid'}), false);
+
+        // Empty element
+        assert.strictEqual(beaconLrc._skipElement(), false);
+
+        // Custom config
+        configStub.value({skipStrings: ['anyid', 'customid']});
+        assert.strictEqual(beaconLrc._skipElement({id: 'anyid'}), true);
+
+        // Case-insensitive
+        configStub.value({skipStrings: ['aNyid', 'customid']});
+        assert.strictEqual(beaconLrc._skipElement({id: 'AnyId'}), true);
+
+        configStub.restore();
+    });
 });
