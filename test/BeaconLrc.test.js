@@ -83,7 +83,7 @@ describe('BeaconLrc', function() {
 
     it('should return empty elements', function() {
         global.document = {
-            querySelectorAll: (selector) => {
+            querySelectorAll: () => {
                 return [];
             },
         };
