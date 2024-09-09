@@ -1,9 +1,17 @@
 'use strict';
 
 class BeaconUtils {
+    static getScreenWidth() {
+        return window.innerWidth || document.documentElement.clientWidth;
+    }
+
+    static getScreenHeight() {
+        return window.innerHeight || document.documentElement.clientHeight;
+    }
+
     static isNotValidScreensize( is_mobile, threshold ) {
-        const screenWidth = window.innerWidth || document.documentElement.clientWidth;
-        const screenHeight = window.innerHeight || document.documentElement.clientHeight;
+        const screenWidth = this.getScreenWidth();
+        const screenHeight = this.getScreenHeight();
 
         const isNotValidForMobile = is_mobile &&
           (screenWidth > threshold.width || screenHeight > threshold.height);
