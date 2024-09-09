@@ -4,7 +4,6 @@ import sinon from "sinon";
 
 describe('BeaconLrc', function() {
     let beaconLrc;
-    let mockElement;
     let mockElements;
 
     beforeEach(function() {
@@ -107,6 +106,7 @@ describe('BeaconLrc', function() {
 
         assert.strictEqual(elements[0].hash, 'hash1');
         assert.strictEqual(elements[0].depth, 1);
+        console.log( elements );
         assert.strictEqual(elements[0].distance, 100);
 
         assert.strictEqual(elements[1].hash, 'hash2');
