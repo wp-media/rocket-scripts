@@ -57,7 +57,7 @@ class BeaconLrc {
     _skipElement(element) {
         const skipStrings = this.config.skipStrings || ['memex'];
         if (!element || !element.id) return false;
-        return skipStrings.some(str => element.id.toLowerCase().includes(str));
+        return skipStrings.some(str => element.id.toLowerCase().includes(str.toLowerCase()));
     }
 
     _shouldSkipElement(element, exclusions) {
@@ -102,7 +102,7 @@ class BeaconLrc {
     }
 
     _getXPath(element) {
-        if (element.id !== "") {
+        if (element && element.id !== "") {
             return `//*[@id="${element.id}"]`;
         }
 
