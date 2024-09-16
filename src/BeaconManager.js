@@ -1,6 +1,7 @@
 'use strict';
 
 import BeaconLcp from "./BeaconLcp.js";
+import BeaconLrc from "./BeaconLrc.js";
 import BeaconUtils from "./Utils.js";
 import Logger from "./Logger.js";
 
@@ -8,6 +9,7 @@ class BeaconManager {
     constructor(config) {
         this.config = config;
         this.lcpBeacon = null;
+        this.lrcBeacon = null;
         this.infiniteLoopId = null;
         this.errorCode = '';
         this.logger = new Logger(this.config.debug);
@@ -25,21 +27,29 @@ class BeaconManager {
         }, 10000);
 
         const isGeneratedBefore = await this._getGeneratedBefore();
-        let shouldSaveResultsIntoDB = false;
 
         // OCI / LCP / ATF
         const shouldGenerateLcp = (
             this.config.status.atf && (isGeneratedBefore === false || isGeneratedBefore.lcp === false)
         );
+        const shouldGeneratelrc = (
+            this.config.status.lrc && (isGeneratedBefore === false || isGeneratedBefore.lrc === false)
+        );
         if (shouldGenerateLcp) {
             this.lcpBeacon = new BeaconLcp(this.config, this.logger);
             await this.lcpBeacon.run();
-            shouldSaveResultsIntoDB = true;
         } else {
-            this.logger.logMessage('Not running BeaconLcp because data is already available');
+            this.logger.logMessage('Not running BeaconLcp because data is already available or feature is disabled');
         }
 
-        if (shouldSaveResultsIntoDB) {
+        if (shouldGeneratelrc) {
+            this.lrcBeacon = new BeaconLrc(this.config, this.logger);
+            await this.lrcBeacon.run();
+        } else {
+            this.logger.logMessage('Not running BeaconLrc because data is already available or feature is disabled');
+        }
+
+        if (shouldGenerateLcp || shouldGeneratelrc) {
             this._saveFinalResultIntoDB();
         } else {
             this.logger.logMessage("Not saving results into DB as no beacon features ran.");
@@ -84,7 +94,8 @@ class BeaconManager {
 
     _saveFinalResultIntoDB() {
         const results = {
-            lcp: this.lcpBeacon ? this.lcpBeacon.getResults() : null
+            lcp: this.lcpBeacon ? this.lcpBeacon.getResults() : null,
+            lrc: this.lrcBeacon ? this.lrcBeacon.getResults() : null
         };
 
         const data = new FormData();
