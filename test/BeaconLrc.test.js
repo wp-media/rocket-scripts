@@ -4,8 +4,7 @@ import sinon from "sinon";
 
 describe('BeaconLrc', function() {
     let beaconLrc;
-    let mockElements,
-        lrcMockElements;
+    let mockElements;
 
     beforeEach(function() {
         mockElements = [
