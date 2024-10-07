@@ -76,11 +76,13 @@ class BeaconLrc {
         const conflictingElements = [];
         const computedStyle = window.getComputedStyle(element);
 
-        const negativeMargins = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']
+        const validMargins = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'];
+
+        const negativeMargins = validMargins
             .some(margin => parseFloat(computedStyle[margin]) < 0);
 
         const currentElementConflicts = negativeMargins ||
-            computedStyle.contentVisibility === 'auto' ||
+          computedStyle.contentVisibility === 'auto' ||
             computedStyle.contentVisibility === 'hidden';
 
         if (currentElementConflicts) {
@@ -97,11 +99,13 @@ class BeaconLrc {
         Array.from(element.children).forEach(child => {
             const childStyle = window.getComputedStyle(child);
 
-            const childNegativeMargins = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']
+            const validMargins = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'];
+
+            const childNegativeMargins = validMargins
                 .some(margin => parseFloat(childStyle[margin]) < 0);
 
             const childConflicts = childNegativeMargins ||
-                childStyle.position === 'absolute' ||
+              childStyle.position === 'absolute' ||
                 childStyle.position === 'fixed';
 
             if (childConflicts) {
