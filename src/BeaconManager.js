@@ -22,6 +22,12 @@ class BeaconManager {
             return;
         }
 
+        if (this._isPageScrolled()) {
+            this.logger.logMessage('Bailing out because the page has been scrolled');
+            this._finalize();
+            return;
+        }
+
         this.infiniteLoopId = setTimeout(() => {
             this._handleInfiniteLoop();
         }, 10000);
@@ -141,6 +147,10 @@ class BeaconManager {
 
     _handleInfiniteLoop() {
         this._saveFinalResultIntoDB();
+    }
+
+    _isPageScrolled() {
+        return window.pageYOffset > 0 || document.documentElement.scrollTop > 0;
     }
 
     _finalize() {
