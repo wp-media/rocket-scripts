@@ -16,7 +16,8 @@ describe('BeaconLrc', function() {
                 },
                 getAttribute: () => 'hash1',
                 hasAttribute: () => true,
-                dataset: { rocketLocationHash: 'hash1' }
+                dataset: { rocketLocationHash: 'hash1' },
+                children: []
             },
             {
                 getBoundingClientRect: () => {
@@ -26,7 +27,8 @@ describe('BeaconLrc', function() {
                 },
                 getAttribute: () => 'hash2',
                 hasAttribute: () => true,
-                dataset: { rocketLocationHash: 'hash2' }
+                dataset: { rocketLocationHash: 'hash2' },
+                children: []
             },
             {
                 getBoundingClientRect: () => {
@@ -36,7 +38,8 @@ describe('BeaconLrc', function() {
                 },
                 getAttribute: () => 'hash3',
                 hasAttribute: () => true,
-                dataset: { rocketLocationHash: 'hash3' }
+                dataset: { rocketLocationHash: 'hash3' },
+                children: []
             },
             {
                 getBoundingClientRect: () => {
@@ -46,7 +49,8 @@ describe('BeaconLrc', function() {
                 },
                 getAttribute: () => 'hash4',
                 hasAttribute: () => true,
-                dataset: { rocketLocationHash: 'hash4' }
+                dataset: { rocketLocationHash: 'hash4' },
+                children: []
             },
         ];
 
@@ -74,6 +78,18 @@ describe('BeaconLrc', function() {
 
         // Mocking window.pageYOffset
         global.window = { pageYOffset: 100, innerHeight: 500 };
+
+        if (typeof global.window.getComputedStyle !== 'function') {
+            global.window.getComputedStyle = () => ({
+                marginTop: '0px',
+                marginRight: '0px',
+                marginBottom: '0px',
+                marginLeft: '0px',
+                contentVisibility: 'visible',
+                position: 'static',
+                overflow: 'visible'
+            });
+        }
     });
 
     afterEach(function() {
@@ -232,4 +248,84 @@ describe('BeaconLrc', function() {
 
         _getElementXPathStub.restore();
     });
+
+    it('should detect conflict when element has negative margins', () => {
+        const element = mockElements[0];
+
+        sinon.stub(window, 'getComputedStyle').callsFake(() => ({
+            marginTop: '-10px',
+            marginRight: '0px',
+            marginBottom: '0px',
+            marginLeft: '0px',
+            contentVisibility: 'visible',
+            position: 'static',
+            overflow: 'visible'
+        }));
+
+        const result = beaconLrc._checkLcrConflict(element);
+
+        assert.strictEqual(result.length, 1);
+        assert.strictEqual(result[0].conflicts.includes('negative margin'), true);
+        window.getComputedStyle.restore();
+    });
+
+    it('should detect conflict when content visibility is hidden', () => {
+        const element = mockElements[0];
+
+        sinon.stub(window, 'getComputedStyle').callsFake(() => ({
+            marginTop: '0px',
+            marginRight: '0px',
+            marginBottom: '0px',
+            marginLeft: '0px',
+            contentVisibility: 'hidden',
+            position: 'static',
+            overflow: 'visible'
+        }));
+
+        const result = beaconLrc._checkLcrConflict(element);
+
+        assert.strictEqual(result.length, 1);
+        assert.strictEqual(result[0].conflicts.includes('content-visibility:hidden'), true);
+        window.getComputedStyle.restore();
+    });
+
+    it('should detect conflict when child has negative margins', () => {
+        const element = mockElements[0];
+
+        const child = {
+            getBoundingClientRect: () => ({ top: 500 }),
+            getAttribute: () => null,
+            hasAttribute: () => false,
+            children: []
+        };
+        element.children = [child];
+
+        sinon.stub(window, 'getComputedStyle')
+            .onCall(0).returns({
+            marginTop: '0px',
+            marginRight: '0px',
+            marginBottom: '0px',
+            marginLeft: '0px',
+            contentVisibility: 'visible',
+            position: 'static',
+            overflow: 'visible'
+        })
+            .onCall(1).returns({
+            marginTop: '-20px',
+            marginRight: '0px',
+            marginBottom: '0px',
+            marginLeft: '0px',
+            contentVisibility: 'visible',
+            position: 'absolute',
+            overflow: 'visible'
+        });
+
+        const result = beaconLrc._checkLcrConflict(element);
+
+        assert.strictEqual(result.length, 1);
+        assert.strictEqual(result[0].element, child);
+        assert.strictEqual(result[0].conflicts.includes('negative margin'), true);
+
+        window.getComputedStyle.restore();
+    })
 });
