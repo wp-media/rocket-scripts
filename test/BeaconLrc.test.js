@@ -132,6 +132,21 @@ describe('BeaconLrc', function() {
         _skipElementStub.restore();
     });
 
+    it('should skip elements with svg use', function() {
+        const _getElementDepthStub = sinon.stub(beaconLrc, '_getElementDepth');
+        _getElementDepthStub.returns(1);
+
+        const _svgElementStub = sinon.stub(beaconLrc, '_getSvgUseTargets');
+        _svgElementStub.returns([mockElements[2]]);
+
+        const elements = beaconLrc._getLazyRenderElements();
+        const skippedElement = elements.find(el => el.hash === 'hash3'); 
+        assert.strictEqual(skippedElement, undefined);
+
+        _getElementDepthStub.restore();
+        _svgElementStub.restore();
+    });
+
     it('should return correct distance', () => {
         const distance = beaconLrc._getElementDistance(mockElements[2]);
         assert.strictEqual(distance, 600);
