@@ -53,7 +53,7 @@ describe('BeaconLrc', function() {
         // Mocking document.querySelectorAll
         global.document = {
             querySelectorAll: (selector) => {
-                if (selector === '[data-rocket-location-hash]') {
+                if (selector === '[data-rocket-location-hash]' || selector === 'use') {
                     return mockElements;
                 }
                 return [];
@@ -246,5 +246,15 @@ describe('BeaconLrc', function() {
         assert.strictEqual(beaconLrc._getXPath({id: 'testID'}), '//*[@id="testID"]');
 
         _getElementXPathStub.restore();
+    });
+
+    it('should return the correct SVG use target elements', function() {
+        mockElements[0].parentElement = { tagName: 'svg', parentElement: null };
+        mockElements[1].parentElement = { tagName: 'div', parentElement: null };
+
+        const targets = beaconLrc._getSvgUseTargets();
+        assert.strictEqual(targets.length, 2);
+        assert.strictEqual(targets[0].tagName, 'svg');
+        assert.strictEqual(targets[1].tagName, 'div');
     });
 });
