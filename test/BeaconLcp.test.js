@@ -1,6 +1,7 @@
 import assert from 'assert';
 import BeaconLcp from '../src/BeaconLcp.js';
 import node_fetch from 'node-fetch';
+import sinon from 'sinon';
 global.fetch = node_fetch;
 
 describe('BeaconManager', function() {
@@ -12,6 +13,29 @@ describe('BeaconManager', function() {
         mockLogger = { logMessage: function(message) {} };
 
         beacon = new BeaconLcp(config, mockLogger);
+
+        global.window = {};
+        global.document = {};
+
+        global.window.getComputedStyle = sinon.stub().returns({
+            getPropertyValue: sinon.stub().returns('none'),
+        });
+
+        global.getComputedStyle = (element, pseudoElement) => {
+            return {
+                getPropertyValue: (prop) => {
+                    if (prop === "background-image") {
+                        return "none";
+                    }
+                    return "";
+                }
+            };
+        };
+    });
+
+    afterEach(function () {
+        sinon.restore();
+        delete global.window;
     });
 
     describe('#constructor()', function() {
@@ -58,6 +82,18 @@ describe('BeaconManager', function() {
             beacon._initWithFirstElementWithInfo(elements);
 
             assert.strictEqual(beacon.performanceImages.length, 0);
+        });
+    });
+
+    describe('#_getElementInfo()', function() {
+        it('should return null when there are no valid background images', function() {
+            const element = {
+                nodeName: 'div'
+            };
+
+            const elementInfo = beacon._getElementInfo(element);
+
+            assert.strictEqual(elementInfo, null);
         });
     });
 });
