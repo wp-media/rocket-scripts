@@ -4,10 +4,14 @@ import node_fetch from 'node-fetch';
 global.fetch = node_fetch;
 
 describe('BeaconManager', function() {
-    let beacon;
+    let beacon,
+        mockLogger;
+
     const config = { nonce: 'test', url: 'http://example.com', is_mobile: false };
     beforeEach(function() {
-        beacon = new BeaconLcp(config);
+        mockLogger = { logMessage: function(message) {} };
+
+        beacon = new BeaconLcp(config, mockLogger);
     });
 
     describe('#constructor()', function() {
@@ -30,4 +34,30 @@ describe('BeaconManager', function() {
         });
     });
 
+    describe('#_initWithFirstElementWithInfo()', function() {
+        it('should initialize performanceImages with the first valid element info', function() {
+            const elements = [
+                { element: { nodeName: 'div' }, elementInfo: null }, // invalid, no elementInfo
+                { element: { nodeName: 'img', src: 'http://example.com/image1.jpg' }, elementInfo: { type: 'img', src: 'http://example.com/image1.jpg' } },
+                { element: { nodeName: 'img', src: 'http://example.com/image2.jpg' }, elementInfo: { type: 'img', src: 'http://example.com/image2.jpg' } },
+            ];
+
+            beacon._initWithFirstElementWithInfo(elements);
+
+            assert.strictEqual(beacon.performanceImages.length, 1);
+            assert.strictEqual(beacon.performanceImages[0].src, 'http://example.com/image1.jpg');
+            assert.strictEqual(beacon.performanceImages[0].label, 'lcp');
+        });
+
+        it('should not initialize performanceImages if no valid element info is found', function() {
+            const elements = [
+                { element: { nodeName: 'div' }, elementInfo: null },
+                { element: { nodeName: 'div' }, elementInfo: null },
+            ];
+
+            beacon._initWithFirstElementWithInfo(elements);
+
+            assert.strictEqual(beacon.performanceImages.length, 0);
+        });
+    });
 });
