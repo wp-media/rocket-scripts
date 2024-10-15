@@ -57,7 +57,7 @@ describe('BeaconLrc', function() {
         // Mocking document.querySelectorAll
         global.document = {
             querySelectorAll: (selector) => {
-                if (selector === '[data-rocket-location-hash]') {
+                if (selector === '[data-rocket-location-hash]' || selector === 'use') {
                     return mockElements;
                 }
                 return [];
@@ -146,6 +146,21 @@ describe('BeaconLrc', function() {
 
         _getElementDepthStub.restore();
         _skipElementStub.restore();
+    });
+
+    it('should skip elements with svg use', function() {
+        const _getElementDepthStub = sinon.stub(beaconLrc, '_getElementDepth');
+        _getElementDepthStub.returns(1);
+
+        const _svgElementStub = sinon.stub(beaconLrc, '_getSvgUseTargets');
+        _svgElementStub.returns([mockElements[2]]);
+
+        const elements = beaconLrc._getLazyRenderElements();
+        const skippedElement = elements.find(el => el.hash === 'hash3'); 
+        assert.strictEqual(skippedElement, undefined);
+
+        _getElementDepthStub.restore();
+        _svgElementStub.restore();
     });
 
     it('should return correct distance', () => {
@@ -328,4 +343,14 @@ describe('BeaconLrc', function() {
 
         window.getComputedStyle.restore();
     })
+
+    it('should return the correct SVG use target elements', function() {
+        mockElements[0].parentElement = { tagName: 'svg', parentElement: null };
+        mockElements[1].parentElement = { tagName: 'div', parentElement: null };
+
+        const targets = beaconLrc._getSvgUseTargets();
+        assert.strictEqual(targets.length, 2);
+        assert.strictEqual(targets[0].tagName, 'svg');
+        assert.strictEqual(targets[1].tagName, 'div');
+    });
 });
