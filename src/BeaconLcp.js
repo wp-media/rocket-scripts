@@ -153,6 +153,10 @@ class BeaconLcp {
                 element_info.bg_set = matches.map(m => m[1] ? { src: m[1].trim() } : {});
             }
 
+            if (element_info.bg_set.length <= 0) {
+                return null;
+            }
+
             if (element_info.bg_set.length > 0) {
                 element_info.src = element_info.bg_set[0].src;
                 if (element_info.type === "bg-img-set") {
@@ -165,7 +169,9 @@ class BeaconLcp {
     }
 
     _initWithFirstElementWithInfo(elements) {
-        const firstElementWithInfo = elements.find(item => item.elementInfo !== null);
+        const firstElementWithInfo = elements.find(item => {
+            return item.elementInfo !== null && (item.elementInfo.src || item.elementInfo.srcset);
+        });
 
         if (!firstElementWithInfo) {
             this.logger.logMessage("No LCP candidate found.");
