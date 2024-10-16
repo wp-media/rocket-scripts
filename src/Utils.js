@@ -35,6 +35,10 @@ class BeaconUtils {
         );
     }
 
+    static isPageScrolled() {
+        return window.pageYOffset > 0 || document.documentElement.scrollTop > 0;
+    }
+
 }
 
 export default BeaconUtils;

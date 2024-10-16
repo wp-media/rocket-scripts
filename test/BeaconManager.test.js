@@ -10,8 +10,21 @@ describe('BeaconManager', function() {
     let beacon;
     const config = { nonce: 'test', url: 'http://example.com', is_mobile: false, status: {atf: true}, width_threshold: 100, height_threshold: 100 };
     beforeEach(function() {
-        //Deep copy of config
+        // Deep copy of config
         beacon = new BeaconManager(JSON.parse(JSON.stringify(config)));
+
+        // Mock window and document objects
+        global.window = {
+            pageYOffset: 0
+        };
+        global.document = {
+            documentElement: {
+                scrollTop: 0
+            },
+            querySelector: sinon.stub().returns({
+                setAttribute: sinon.spy()
+            })
+        };
     });
 
     describe('#constructor()', function() {
@@ -106,6 +119,47 @@ describe('BeaconManager', function() {
             
             assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
             assert.strictEqual(_saveFinalResultIntoDBStub.notCalled, true);
+        });
+    });
+
+    describe('#init()', function() {
+        let fetchStub;
+        let _isValidPreconditionsStub;
+        let isPageCachedStub;
+        let _finalizeStub;
+
+        beforeEach(function() {
+            // Stub the global fetch method
+            _isValidPreconditionsStub = sinon.stub(beacon, '_isValidPreconditions');
+            isPageCachedStub = sinon.stub(BeaconUtils, 'isPageCached');
+            _finalizeStub = sinon.stub(beacon, '_finalize');
+            fetchStub = sinon.stub(global, 'fetch').resolves({
+                json: () => Promise.resolve({ data: false })
+            });
+        });
+
+        afterEach(function() {
+            // Restore the original fetch method
+            _isValidPreconditionsStub.restore();
+            isPageCachedStub.restore();
+            _finalizeStub.restore();
+            fetchStub.restore();
+        });
+
+        it('should bail out if the page is scrolled', async function() {
+            // Mock _isValidPreconditions
+            _isValidPreconditionsStub.resolves(true);
+            isPageCachedStub.returns(false);
+
+            // Simulate page being scrolled
+            global.window.pageYOffset = 100;
+            global.document.documentElement.scrollTop = 100;
+
+            await beacon.init();
+
+            assert.strictEqual(_isValidPreconditionsStub.calledOnce, true);
+            assert.strictEqual(_finalizeStub.calledOnce, true);
+            assert.strictEqual(fetchStub.notCalled, true);
         });
     });
 

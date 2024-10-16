@@ -22,6 +22,12 @@ class BeaconManager {
             return;
         }
 
+        if (BeaconUtils.isPageScrolled()) {
+            this.logger.logMessage('Bailing out because the page has been scrolled');
+            this._finalize();
+            return;
+        }
+
         this.infiniteLoopId = setTimeout(() => {
             this._handleInfiniteLoop();
         }, 10000);
