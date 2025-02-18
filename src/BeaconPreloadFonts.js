@@ -164,7 +164,7 @@ class BeaconPreloadFonts {
      * It then processes each element on the page to determine which fonts are used above the fold.
      * The results are summarized and logged.
      * 
-     * @returns {this} This instance of BeaconPreloadFonts.
+     * @returns {Promise<this>} A promise that resolves to this instance of BeaconPreloadFonts.
      */
     async run() {
         const networkLoadedFonts = this.getNetworkLoadedFonts();
