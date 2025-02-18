@@ -175,7 +175,7 @@ describe('BeaconPreloadFonts', () => {
         });
     });
 
-    describe('BeaconPreloadFonts', () => {    
+    describe('run', () => {    
         it('should run the font analysis process correctly', async () => {
             const getNetworkLoadedFontsStub = sinon.stub(beaconPreloadFonts, 'getNetworkLoadedFonts').returns(new Map());
             const getFontFaceRulesStub = sinon.stub(beaconPreloadFonts, 'getFontFaceRules').returns({});
@@ -196,6 +196,46 @@ describe('BeaconPreloadFonts', () => {
             assert(loggerMock.logMessage.calledWith('Above the fold fonts:', beaconPreloadFonts.aboveTheFoldFonts), 'logMessage should be called with correct arguments');
     
             document.body.removeChild(mockElement);
+        });
+    });
+
+    describe('summarizeMatches', () => {
+        it('should summarize hosted and external fonts correctly', () => {
+            const externalFontsResults = {
+                'http://example.com/font1.woff': {
+                    elementCount: { aboveFold: 1, total: 1 },
+                    variations: [{ family: 'Font1', weight: '400', style: 'normal' }],
+                    elements: [document.createElement('div')]
+                }
+            };
+
+            const hostedFonts = new Map();
+            hostedFonts.set('Font2', {
+                variations: [{ weight: '400', style: 'normal' }],
+                elements: new Set([document.createElement('div')]),
+                urls: ['http://example.com/font2.woff']
+            });
+
+            // Mock the isElementAboveFold method to return true for the hosted font element
+            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').callsFake((el) => {
+                return true; // Assume all elements are above the fold for this test
+            });
+
+            const networkLoadedFonts = new Map();
+            networkLoadedFonts.set('http://example.com/font2.woff', 'http://example.com/font2.woff');
+
+            const result = beaconPreloadFonts.summarizeMatches(externalFontsResults, hostedFonts, networkLoadedFonts);
+
+            assert.deepEqual(result.externalFonts, {
+                'http://example.com/font1.woff': externalFontsResults['http://example.com/font1.woff']
+            });
+            assert.deepEqual(result.hostedFonts['Font2'].variations[0], {
+                weight: '400',
+                style: 'normal',
+                url: 'http://example.com/font2.woff',
+                elementCount: { aboveFold: 1, belowFold: 0, total: 1 }
+            });
+            assert.ok(loggerMock.logMessage.notCalled);
         });
     });
 });
