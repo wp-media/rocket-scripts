@@ -8,15 +8,15 @@ import BeaconManager from "./BeaconManager.js";
     const instance = new BeaconManager( rocket_beacon_data );
 
     if (document.readyState !== 'loading') {
-        setTimeout(() => {
-            instance.init();
+        setTimeout(async () => {
+            await instance.init();
         }, rocket_beacon_data.delay);
         return;
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        setTimeout(() => {
-            instance.init();
+    document.addEventListener("DOMContentLoaded", async () => {
+        setTimeout(async () => {
+            await instance.init();
         }, rocket_beacon_data.delay);
     });
 } )( window.rocket_beacon_data );
