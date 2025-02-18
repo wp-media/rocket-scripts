@@ -1,3 +1,4 @@
+'use strict';
 class BeaconPreloadFonts {
     constructor(config, logger) {
         this.config = config;
