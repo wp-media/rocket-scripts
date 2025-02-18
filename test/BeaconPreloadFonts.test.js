@@ -174,4 +174,28 @@ describe('BeaconPreloadFonts', () => {
             document.body.removeChild(element);
         });
     });
+
+    describe('BeaconPreloadFonts', () => {    
+        it('should run the font analysis process correctly', async () => {
+            const getNetworkLoadedFontsStub = sinon.stub(beaconPreloadFonts, 'getNetworkLoadedFonts').returns(new Map());
+            const getFontFaceRulesStub = sinon.stub(beaconPreloadFonts, 'getFontFaceRules').returns({});
+            const processExternalFontsStub = sinon.stub(beaconPreloadFonts, 'processExternalFonts').returns(Promise.resolve({}));
+            const summarizeMatchesStub = sinon.stub(beaconPreloadFonts, 'summarizeMatches').returns({ allFonts: {} });
+    
+            const mockElement = document.createElement('div');
+            mockElement.textContent = 'Test content';
+            document.body.appendChild(mockElement);
+    
+            await beaconPreloadFonts.run();
+   
+            assert(getNetworkLoadedFontsStub.calledOnce, 'getNetworkLoadedFonts should be called once');
+            assert(getFontFaceRulesStub.calledOnce, 'getFontFaceRules should be called once');
+            assert(processExternalFontsStub.calledOnce, 'processExternalFonts should be called once');
+            assert(summarizeMatchesStub.calledOnce, 'summarizeMatches should be called once');
+            assert.deepEqual(beaconPreloadFonts.aboveTheFoldFonts, { allFonts: {} }, 'aboveTheFoldFonts should match expected structure');
+            assert(loggerMock.logMessage.calledWith('Above the fold fonts:', beaconPreloadFonts.aboveTheFoldFonts), 'logMessage should be called with correct arguments');
+    
+            document.body.removeChild(mockElement);
+        });
+    });
 });
