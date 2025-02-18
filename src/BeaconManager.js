@@ -44,7 +44,7 @@ class BeaconManager {
             this.config.status.lrc && (isGeneratedBefore === false || isGeneratedBefore.lrc === false)
         );
         const shouldGeneratePreloadFonts = (
-            this.config.status.preloadFonts && (isGeneratedBefore === false || isGeneratedBefore.preloadFonts === false)
+            this.config.status.preload_fonts && (isGeneratedBefore === false || isGeneratedBefore.preload_fonts === false)
         );
         if (shouldGenerateLcp) {
             this.lcpBeacon = new BeaconLcp(this.config, this.logger);
