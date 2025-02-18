@@ -390,7 +390,7 @@ class BeaconPreloadFonts {
      * with the provided external font pairs to identify which fonts are used and where.
      * 
      * @param {Object} fontPairs - An object where each key is a URL and the value is an array of font variations.
-     * @returns {Object} An object where each key is a URL and the value is an object containing information about the elements using that font.
+     * @returns {Promise<Object>} A promise that resolves to an object where each key is a URL and the value is an object containing information about the elements using that font.
      */
     async processExternalFonts(fontPairs) {
         const matches = new Map();
