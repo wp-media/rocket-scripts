@@ -1,4 +1,3 @@
-// test/BeaconPreloadFonts.test.js
 import assert from 'assert';
 import sinon from 'sinon';
 import BeaconPreloadFonts from '../src/BeaconPreloadFonts.js';
