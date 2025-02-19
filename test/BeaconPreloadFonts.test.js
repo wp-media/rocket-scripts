@@ -257,7 +257,7 @@ describe('BeaconPreloadFonts', () => {
 
             // Mock the isElementAboveFold method to return true for the hosted font element
             let callCount = 0;
-            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').callsFake((el) => {
+            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').callsFake(() => {
                 callCount++; // Increment the counter on each call
                 return callCount === 1; // Return true only for the first call
             });
