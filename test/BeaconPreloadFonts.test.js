@@ -238,4 +238,49 @@ describe('BeaconPreloadFonts', () => {
             assert.ok(loggerMock.logMessage.notCalled);
         });
     });
+
+    describe('processExternalFonts', () => {
+        it('should process external font pairs correctly', async () => {
+            const fontPairs = {
+                'https://example.com/font1.woff2': [
+                    { family: 'Font1', weight: '400', style: 'normal' },
+                ],
+                'https://example.com/font2.woff2': [
+                    { family: 'Font2', weight: '400', style: 'normal' }
+                ]
+            };
+
+            // Mocking the DOM elements
+            const element = document.createElement('div');
+            element.textContent = 'Test content';
+            document.body.appendChild(element);
+
+            // Mock the isElementAboveFold method to return true for the hosted font element
+            let callCount = 0;
+            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').callsFake((el) => {
+                callCount++; // Increment the counter on each call
+                return callCount === 1; // Return true only for the first call
+            });
+
+            // Mocking the getComputedStyle method
+            sinon.stub(window, 'getComputedStyle').returns({
+                fontFamily: 'Font1, sans-serif',
+                fontWeight: '400',
+                fontStyle: 'normal'
+            });
+
+            const result = await beaconPreloadFonts.processExternalFonts(fontPairs);
+
+            console.log('test result', result);
+
+            // Assertions
+            assert.strictEqual(typeof result, 'object', 'Result should be an object');
+            assert.ok(result['https://example.com/font1.woff2'], 'Result should contain font1');
+            assert.strictEqual(result['https://example.com/font1.woff2'].elementCount.total, 1, 'Font1 should have total count of 1');
+
+            // Clean up
+            document.body.removeChild(element);
+            window.getComputedStyle.restore();
+        });
+    });
 });
