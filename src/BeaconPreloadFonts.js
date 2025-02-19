@@ -375,7 +375,7 @@ class BeaconPreloadFonts {
         return {
             externalFonts: Object.fromEntries(
                 Object.entries(externalFontsResults).filter(
-                    ([_, data]) => data.elementCount.aboveFold > 0
+                    (entry) => entry[1].elementCount.aboveFold > 0
                 )
             ),
             hostedFonts: hostedFontsResults,

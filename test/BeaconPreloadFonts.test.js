@@ -29,7 +29,7 @@ describe('BeaconPreloadFonts', () => {
                     removeChild: function() {}
                 };
             },
-            querySelectorAll: (selector) => {
+            querySelectorAll: () => {
                 return []; // Return an empty array for any selector
             },
             body: {
@@ -217,7 +217,7 @@ describe('BeaconPreloadFonts', () => {
             });
 
             // Mock the isElementAboveFold method to return true for the hosted font element
-            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').callsFake((el) => {
+            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').callsFake(() => {
                 return true; // Assume all elements are above the fold for this test
             });
 
