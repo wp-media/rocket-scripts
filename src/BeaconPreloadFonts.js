@@ -284,6 +284,10 @@ class BeaconPreloadFonts {
                         }
                     });
 
+                    if (!Object.prototype.hasOwnProperty.call(allFonts, fontFamily)) {
+                        return;
+                    }
+
                     // Copy to hostedFontsResults
                     hostedFontsResults[fontFamily] = {
                         variations: allFonts[fontFamily].variations,
