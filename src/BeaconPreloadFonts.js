@@ -165,7 +165,7 @@ class BeaconPreloadFonts {
      * It then processes each element on the page to determine which fonts are used above the fold.
      * The results are summarized and logged.
      * 
-     * @returns {Promise<this>} A promise that resolves to this instance of BeaconPreloadFonts.
+     * @returns {Promise<void>} A promise that resolves when the analysis is complete.
      */
     async run() {
         const networkLoadedFonts = this.getNetworkLoadedFonts();
@@ -208,9 +208,18 @@ class BeaconPreloadFonts {
             }
         });
 
-        this.aboveTheFoldFonts = this.summarizeMatches(externalFontsResults, hostedFonts, networkLoadedFonts);
-        this.logger.logMessage('Above the fold fonts:', this.aboveTheFoldFonts);
-        return this;
+        const aboveTheFoldFonts = this.summarizeMatches(externalFontsResults, hostedFonts, networkLoadedFonts);
+        
+        // Check if allFonts, externalFonts, and hostedFonts are empty
+        if (!Object.keys(aboveTheFoldFonts.allFonts).length &&
+            !Object.keys(aboveTheFoldFonts.externalFonts).length &&
+            !Object.keys(aboveTheFoldFonts.hostedFonts).length) {
+            this.logger.logMessage('No fonts found above the fold.');
+            return;
+        }
+
+        this.logger.logMessage('Above the fold fonts:', aboveTheFoldFonts);
+        this.aboveTheFoldFonts = Object.values(aboveTheFoldFonts.allFonts).flatMap(font => font.variations.map(variation => variation.url));
     }
 
     /**
@@ -490,11 +499,12 @@ class BeaconPreloadFonts {
 
     /**
      * Retrieves the results of the font analysis, specifically the fonts used above the fold.
+     * This method returns an array containing the URLs of the fonts used above the fold.
      * 
-     * @returns {Object} An object containing the results of the font analysis.
+     * @returns {Array<string>} An array of URLs of the fonts used above the fold.
      */
     getResults() {
-      return this.aboveTheFoldFonts.allFonts;
+      return this.aboveTheFoldFonts;
     }
 }
 
