@@ -12,6 +12,11 @@ class BeaconPreconnectExternalDomain {
         this.excludedItems = new Set();
     }
 
+    /**
+     * Initiates the process of identifying and logging external domains that require preconnection.
+     * This method queries the document for eligible elements, processes each element to determine
+     * if it should be preconnected, and logs the results.
+     */
     async run() {
         const elements = document.querySelectorAll(
             `${this.eligibleElements.join(', ')}[src], ${this.eligibleElements.join(', ')}[href], ${this.eligibleElements.join(', ')}[rel], ${this.eligibleElements.join(', ')}[type]`
@@ -22,6 +27,14 @@ class BeaconPreconnectExternalDomain {
         this.logger.logMessage({matchedItems: this.getMatchedItems(), excludedItems: Array.from(this.excludedItems)});
     }
 
+    /**
+     * Processes a single element to determine if it should be preconnected.
+     * 
+     * This method checks if the element is excluded based on attribute or domain rules.
+     * If not excluded, it checks if the element's URL is an external domain and adds it to the list of matched items.
+     * 
+     * @param {Element} el - The element to process.
+     */
     processElement(el) {
 
         try {
@@ -46,22 +59,61 @@ class BeaconPreconnectExternalDomain {
         }
     }
 
+    /**
+     * Checks if an element is excluded based on attribute rules.
+     * 
+     * This method iterates through the excludedPatterns array and checks if any pattern matches the element's attribute.
+     * If a match is found, it returns true, indicating the element is excluded.
+     * 
+     * @param {Element} el - The element to check.
+     * @returns {boolean} True if the element is excluded by an attribute rule, false otherwise.
+     */
     isExcludedByAttribute(el) {
         return this.excludedPatterns.some(pattern =>
             pattern.type === 'attribute' && el.getAttribute(pattern.key) === pattern.value
         );
     }
 
+    /**
+     * Checks if a URL is excluded based on domain rules.
+     * 
+     * This method iterates through the excludedPatterns array and checks if any pattern matches the URL's hostname.
+     * If a match is found, it returns true, indicating the URL is excluded.
+     * 
+     * @param {URL} url - The URL to check.
+     * @returns {boolean} True if the URL is excluded by a domain rule, false otherwise.
+     */
     isExcludedByDomain(url) {
         return this.excludedPatterns.some(pattern =>
             pattern.type === 'domain' && url.hostname.includes(pattern.value)
         );
     }
 
+    /**
+     * Checks if a URL is from an external domain.
+     * 
+     * This method compares the hostname of the given URL with the hostname of the current location.
+     * If they are not the same, it indicates the URL is from an external domain.
+     * 
+     * @param {URL} url - The URL to check.
+     * @returns {boolean} True if the URL is from an external domain, false otherwise.
+     */
     isExternalDomain(url) {
         return url.hostname !== location.hostname && url.hostname;
     }
 
+    /**
+     * Creates an exclusion object based on the URL, element, and type.
+     * 
+     * This method finds the pattern in the excludedPatterns array that matches the type and the element's attribute or the URL's hostname.
+     * It then constructs a reason string based on the type and the pattern.
+     * Finally, it returns an object with the URL's hostname, the element's tag name, and the reason.
+     * 
+     * @param {URL} url - The URL to create the exclusion object for.
+     * @param {Element} el - The element to create the exclusion object for.
+     * @param {string} type - The type of the exclusion (attribute or domain).
+     * @returns {Object} An object with the URL's hostname, the element's tag name, and the reason.
+     */
     createExclusionObject(url, el, type) {
         const pattern = this.excludedPatterns.find(p => 
             (type === 'attribute' && el.getAttribute(p.key) === p.value) ||
@@ -72,16 +124,31 @@ class BeaconPreconnectExternalDomain {
         return { domain: url.hostname, elementType: el.tagName.toLowerCase(), reason };
     }
 
+    /**
+     * Returns an array of matched items, each item split into its domain and element type.
+     * 
+     * This method iterates through the matchedItems set, splits each item into its domain and element type using the last hyphen as a delimiter,
+     * and returns an array of these split items.
+     * 
+     * @returns {Array} An array of arrays, each containing a domain and an element type.
+     */
     getMatchedItems() {
         return Array.from(this.matchedItems).map(item => {
             const lastHyphenIndex = item.lastIndexOf('-');
             return [
-                item.substring(0, lastHyphenIndex),
-                item.substring(lastHyphenIndex + 1)
+                item.substring(0, lastHyphenIndex), // Domain
+                item.substring(lastHyphenIndex + 1) // Element type
             ];
         });
     }
 
+    /**
+     * Returns the array of unique domain names that were found to be external.
+     * 
+     * This method returns the result array, which contains a list of unique domain names that were identified as external during the analysis process.
+     * 
+     * @returns {Array} An array of unique domain names.
+     */
     getResults() {
         return this.result;
     }
