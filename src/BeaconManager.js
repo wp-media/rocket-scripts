@@ -2,6 +2,7 @@
 
 import BeaconLcp from "./BeaconLcp.js";
 import BeaconLrc from "./BeaconLrc.js";
+import BeaconPreloadFonts from "./BeaconPreloadFonts.js";
 import BeaconUtils from "./Utils.js";
 import Logger from "./Logger.js";
 
@@ -10,6 +11,7 @@ class BeaconManager {
         this.config = config;
         this.lcpBeacon = null;
         this.lrcBeacon = null;
+        this.preloadFontsBeacon = null;
         this.infiniteLoopId = null;
         this.errorCode = '';
         this.logger = new Logger(this.config.debug);
@@ -34,12 +36,15 @@ class BeaconManager {
 
         const isGeneratedBefore = await this._getGeneratedBefore();
 
-        // OCI / LCP / ATF
+        // OCI / LCP / ATF / PRELOAD FONTS
         const shouldGenerateLcp = (
             this.config.status.atf && (isGeneratedBefore === false || isGeneratedBefore.lcp === false)
         );
         const shouldGeneratelrc = (
             this.config.status.lrc && (isGeneratedBefore === false || isGeneratedBefore.lrc === false)
+        );
+        const shouldGeneratePreloadFonts = (
+            this.config.status.preload_fonts && (isGeneratedBefore === false || isGeneratedBefore.preload_fonts === false)
         );
         if (shouldGenerateLcp) {
             this.lcpBeacon = new BeaconLcp(this.config, this.logger);
@@ -55,7 +60,14 @@ class BeaconManager {
             this.logger.logMessage('Not running BeaconLrc because data is already available or feature is disabled');
         }
 
-        if (shouldGenerateLcp || shouldGeneratelrc) {
+        if (shouldGeneratePreloadFonts) {
+            this.preloadFontsBeacon = new BeaconPreloadFonts(this.config, this.logger);
+            await this.preloadFontsBeacon.run();
+        } else {
+            this.logger.logMessage('Not running BeaconPreloadFonts because data is already available or feature is disabled');
+        }
+
+        if (shouldGenerateLcp || shouldGeneratelrc || shouldGeneratePreloadFonts) {
             this._saveFinalResultIntoDB();
         } else {
             this.logger.logMessage("Not saving results into DB as no beacon features ran.");
@@ -101,7 +113,8 @@ class BeaconManager {
     _saveFinalResultIntoDB() {
         const results = {
             lcp: this.lcpBeacon ? this.lcpBeacon.getResults() : null,
-            lrc: this.lrcBeacon ? this.lrcBeacon.getResults() : null
+            lrc: this.lrcBeacon ? this.lrcBeacon.getResults() : null,
+            preload_fonts: this.preloadFontsBeacon ? this.preloadFontsBeacon.getResults() : null
         };
 
         const data = new FormData();
