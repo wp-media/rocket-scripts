@@ -289,4 +289,39 @@ describe('BeaconPreloadFonts', () => {
             window.getComputedStyle.restore();
         });
     });
+
+    describe('getResults', () => {
+        it('should return an array with no duplicate URLs from getResults', async () => {
+            sinon.stub(beaconPreloadFonts, 'getNetworkLoadedFonts').returns(new Map());
+            sinon.stub(beaconPreloadFonts, 'getFontFaceRules').returns({});
+            sinon.stub(beaconPreloadFonts, 'processExternalFonts').returns({});
+    
+            // Stub the summarizeMatches method to control its output
+            const summarizeMatchesStub = sinon.stub(beaconPreloadFonts, 'summarizeMatches').returns({
+                externalFonts: {},
+                hostedFonts: {},
+                allFonts: {
+                    'Font1': {
+                        variations: [{ url: 'https://example.com/font1.woff2' }],
+                    },
+                    'Font2': {
+                        variations: [{ url: 'https://example.com/font2.woff2' }],
+                    },
+                    'Font3': {
+                        variations: [{ url: 'https://example.com/font1.woff2' }], // Duplicate URL
+                    },
+                }
+            });
+    
+            await beaconPreloadFonts.run();
+            const results = beaconPreloadFonts.getResults();
+            
+            // Check for duplicates
+            const uniqueResults = [...new Set(results)];
+            assert.deepEqual(results, uniqueResults, 'The results contain duplicate URLs');
+    
+            // Restore the stub
+            summarizeMatchesStub.restore();
+        });
+    });
 });
