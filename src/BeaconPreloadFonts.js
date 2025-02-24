@@ -204,7 +204,7 @@ class BeaconPreloadFonts {
                     processElementFont(window.getComputedStyle(element, pseudo), pseudo);
                 });
             } catch (e) {
-                console.debug('Error processing element:', e);
+                this.logger.logMessage('Error processing element:', e);
             }
         });
 
@@ -219,7 +219,7 @@ class BeaconPreloadFonts {
         }
 
         this.logger.logMessage('Above the fold fonts:', aboveTheFoldFonts);
-        this.aboveTheFoldFonts = Object.values(aboveTheFoldFonts.allFonts).flatMap(font => font.variations.map(variation => variation.url));
+        this.aboveTheFoldFonts = [...new Set(Object.values(aboveTheFoldFonts.allFonts).flatMap(font => font.variations.map(variation => variation.url)))];
     }
 
     /**
