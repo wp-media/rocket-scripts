@@ -48,7 +48,10 @@ describe('BeaconPreloadFonts', () => {
                     getBoundingClientRect: () => ({ top: 50, height: 100, width: 100 }) // Mocking getBoundingClientRect
                 }
             ]),
-            documentElement: { scrollTop: 100 } // Mock scroll position
+            documentElement: { scrollTop: 100 }, // Mock scroll position
+            fonts: {
+                ready: function () {}
+            }
         };
 
         // Mocking the DOM elements and their styles
