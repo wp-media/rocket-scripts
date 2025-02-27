@@ -168,6 +168,8 @@ class BeaconPreloadFonts {
      * @returns {Promise<void>} A promise that resolves when the analysis is complete.
      */
     async run() {
+        // Wait for fonts to be loaded
+        await document.fonts.ready;
         const networkLoadedFonts = this.getNetworkLoadedFonts();
         const stylesheetFonts = this.getFontFaceRules();
         const hostedFonts = new Map();
