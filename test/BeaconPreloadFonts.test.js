@@ -2,6 +2,27 @@ import assert from 'assert';
 import sinon from 'sinon';
 import BeaconPreloadFonts from '../src/BeaconPreloadFonts.js';
 
+// Helper function to create mock CSSFontFaceRule objects
+const createMockFontFaceRule = (fontFamily, src, weight, style) => {
+    // Create an actual instance that passes the instanceof check
+    const rule = Object.create(CSSFontFaceRule.prototype);
+    
+    // Add the style property with getPropertyValue method
+    rule.style = {
+      getPropertyValue: function(prop) {
+        switch(prop) {
+          case 'font-family': return `'${fontFamily}'`;
+          case 'src': return src;
+          case 'font-weight': return weight;
+          case 'font-style': return style;
+          default: return '';
+        }
+      }
+    };
+    
+    return rule;
+  }
+
 describe('BeaconPreloadFonts', () => {
     let beaconPreloadFonts;
     let loggerMock;
@@ -53,6 +74,8 @@ describe('BeaconPreloadFonts', () => {
                 ready: function () {}
             }
         };
+
+        global.CSSFontFaceRule = function() {};
 
         // Mocking the DOM elements and their styles
         document.body.innerHTML = `
@@ -326,5 +349,122 @@ describe('BeaconPreloadFonts', () => {
             // Restore the stub
             summarizeMatchesStub.restore();
         });
+    });
+
+    describe('getFontFaceRules', () => {
+        it('should return an empty object when no stylesheets exist', function() {
+            document.styleSheets = [];
+            const result = beaconPreloadFonts.getFontFaceRules();
+            assert.deepStrictEqual(result, {});
+        });
+        
+        it('should process multiple font-face rules correctly', function() {
+            // Create mock stylesheets with font-face rules
+            const mockCSSFontFaceRule1 = createMockFontFaceRule('Roboto', 'url("fonts/roboto.woff2")', '700', 'normal');
+            const mockCSSFontFaceRule2 = createMockFontFaceRule('Roboto', 'url("fonts/roboto-italic.woff2")', '700', 'italic');
+            const mockCSSFontFaceRule3 = createMockFontFaceRule('Open Sans', 'url("fonts/opensans.woff2")', '400', 'normal');
+            
+            const mockStyleSheet = {
+                href: 'https://example.com/styles.css',
+                cssRules: [
+                mockCSSFontFaceRule1,
+                { type: 1 }, // Some other rule type
+                mockCSSFontFaceRule2,
+                mockCSSFontFaceRule3
+                ]
+            };
+            
+            document.styleSheets = [mockStyleSheet];
+
+            beaconPreloadFonts.cleanUrl = sinon.stub().callsFake(url => url.split('?')[0]);
+            
+            const result = beaconPreloadFonts.getFontFaceRules();
+            console.log('result', result);
+            
+            // Verify correct parsing
+            assert.strictEqual(Object.keys(result).length, 2, 'Should have two font families');
+            
+            // Check Roboto data
+            assert.ok(result['Roboto'], 'Should have Roboto font');
+            assert.strictEqual(result['Roboto'].urls.length, 2, 'Roboto should have 2 URLs');
+            assert.strictEqual(result['Roboto'].variations.length, 2, 'Roboto should have 2 variations');
+            
+            // Check Open Sans data
+            assert.ok(result['Open Sans'], 'Should have Open Sans font');
+            assert.strictEqual(result['Open Sans'].urls.length, 1, 'Open Sans should have 1 URL');
+            
+            // Verify cleanUrl was called
+            assert.ok(beaconPreloadFonts.cleanUrl.called, 'cleanUrl should be called');
+        });
+        
+        it('should handle multiple src URLs in one font-face rule', function() {
+            const multipleSrcRule = createMockFontFaceRule(
+                'MyCustomFont3', 
+                'url("fonts/font.woff2") format("woff2"), url("fonts/font.woff") format("woff"), url("fonts/font.ttf") format("truetype")',
+                'normal',
+                'normal'
+            );
+            
+            document.styleSheets = [{
+                href: null,
+                cssRules: [multipleSrcRule]
+            }];
+            
+            const result = beaconPreloadFonts.getFontFaceRules();
+            
+            assert.ok(result['MyCustomFont3'], 'Should have MyCustomFont3');
+            assert.strictEqual(result['MyCustomFont3'].urls.length, 3, 'Should extract all 3 URLs');
+        });
+        
+        it('should convert relative URLs to absolute when stylesheet has href', function() {
+            const fontFaceRule = createMockFontFaceRule('Arial', 'url("../fonts/arial.woff2")', '400', 'normal');
+            
+            document.styleSheets = [{
+                href: 'https://example.com/css/styles.css',
+                cssRules: [fontFaceRule]
+            }];
+            
+            global.URL = sinon.stub().returns({
+                href: 'https://example.com/fonts/arial.woff2'
+            });
+            
+            const result = beaconPreloadFonts.getFontFaceRules();
+            
+            assert.strictEqual(result['Arial'].urls[0], 'https://example.com/fonts/arial.woff2', 
+                                'Should convert relative URL to absolute');
+        });
+        
+        it('should handle errors when accessing cross-origin stylesheets', function() {
+            // Create a stylesheet that throws error when accessing cssRules
+            const errorStyleSheet = {
+                get cssRules() {
+                throw new Error('Cannot access cssRules of cross-origin stylesheet');
+                }
+            };
+            
+            document.styleSheets = [errorStyleSheet];
+            
+            const result = beaconPreloadFonts.getFontFaceRules();
+            
+            // Should log error and return empty object
+            assert.ok(beaconPreloadFonts.logger.logMessage.called, 'Should log the error');
+            assert.deepStrictEqual(result, {}, 'Should return empty object on error');
+        });
+        
+        it('should deduplicate URLs for the same font family', function() {
+            // Create two rules with DIFFERENT URLs
+            const rule1 = createMockFontFaceRule('Duplicate', 'url("fonts/normal.woff2")', '400', 'normal');
+            const rule2 = createMockFontFaceRule('Duplicate', 'url("fonts/bold.woff2")', '700', 'normal');
+            
+            document.styleSheets = [{
+              href: null,
+              cssRules: [rule1, rule2]
+            }];
+            
+            const result = beaconPreloadFonts.getFontFaceRules();
+            
+            assert.strictEqual(result['Duplicate'].urls.length, 2, 'Should have two different URLs');
+            assert.strictEqual(result['Duplicate'].variations.length, 2, 'Should have two variations');
+          });
     });
 });
