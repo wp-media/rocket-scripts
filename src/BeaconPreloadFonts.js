@@ -9,18 +9,17 @@ class BeaconPreloadFonts {
     static FONT_FILE_REGEX = /\.(woff2?|ttf|otf|eot)(\?.*)?$/i;
 
     /**
-     * Checks if a given font family is a system font.
+     * Checks if a given font family is excluded or not.
      * 
-     * This method checks if the provided font family is part of the system fonts
-     * defined in the configuration. It returns true if the font family is a system
-     * font, and false otherwise.
+     * This method checks if the provided font family excluded by checking if it matches
+     * with exclusion list defined in the configuration.
      * 
-     * @param {string} fontFamily - The font family to check.
-     * @returns {boolean} True if the font family is a system font, false otherwise.
+     * @param {string} item - The font family to check.
+     * @returns {boolean} True if the font family is excluded, false otherwise.
      */
-    isSystemFont(fontFamily) {
-        const systemFonts = new Set(this.config.system_fonts);
-        return systemFonts.has(fontFamily);
+    isExcluded(item) {
+        const exclusions = new Set(this.config.preload_fonts_exclusions);
+        return exclusions.has(item);
     }
 
     /**
@@ -188,7 +187,7 @@ class BeaconPreloadFonts {
                     style.content !== 'none' && style.content !== '""' :
                     element.textContent.trim();
 
-                if (hasContent && !this.isSystemFont(fontFamily) && stylesheetFonts[fontFamily]) {
+                if (hasContent && !this.isExcluded(element) && stylesheetFonts[fontFamily]) {
                     if (!hostedFonts.has(fontFamily)) {
                         hostedFonts.set(fontFamily, {
                             elements: new Set(),
