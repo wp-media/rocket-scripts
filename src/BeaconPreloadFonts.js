@@ -224,8 +224,8 @@ class BeaconPreloadFonts {
                             urls: urls,
                             variations: stylesheetFonts[fontFamily].variations
                         });
+                        hostedFonts.get(fontFamily).elements.add(element);
                     }
-                    hostedFonts.get(fontFamily).elements.add(element);
                 }
             };
 
@@ -481,13 +481,14 @@ class BeaconPreloadFonts {
                             elements: new Set(),
                             variations: new Set()
                         });
+
+                        matches.get(fontInfo.url).elements.add(element);
+                        matches.get(fontInfo.url).variations.add(JSON.stringify({
+                            family: fontInfo.family,
+                            weight: fontInfo.weight,
+                            style: fontInfo.style
+                        }));
                     }
-                    matches.get(fontInfo.url).elements.add(element);
-                    matches.get(fontInfo.url).variations.add(JSON.stringify({
-                        family: fontInfo.family,
-                        weight: fontInfo.weight,
-                        style: fontInfo.style
-                    }));
                 }
             }
 
@@ -501,13 +502,13 @@ class BeaconPreloadFonts {
                                 elements: new Set(),
                                 variations: new Set()
                             });
+                            matches.get(fontInfo.url).elements.add(element);
+                            matches.get(fontInfo.url).variations.add(JSON.stringify({
+                                family: fontInfo.family,
+                                weight: fontInfo.weight,
+                                style: fontInfo.style
+                            }));
                         }
-                        matches.get(fontInfo.url).elements.add(element);
-                        matches.get(fontInfo.url).variations.add(JSON.stringify({
-                            family: fontInfo.family,
-                            weight: fontInfo.weight,
-                            style: fontInfo.style
-                        }));
                     }
                 }
             });
