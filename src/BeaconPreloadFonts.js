@@ -69,6 +69,39 @@ class BeaconPreloadFonts {
     }
 
     /**
+     * Inlines Google Fonts CSS to avoid CORS issues before parsing stylesheets.
+     *
+     * @returns {Promise<void>} A promise that resolves when inlining is complete.
+     */
+    async inlineGoogleFonts() {
+        // Find and dedupe Google Fonts stylesheet links.
+        const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+            .filter(link => link.href.includes('fonts.googleapis.com'));
+        const hrefs = [...new Set(links.map(l => l.href))];
+        if (!hrefs.length) return;
+        // Fetch all CSS in parallel.
+        const cssContents = await Promise.all(
+            hrefs.map(href =>
+                fetch(href)
+                    .then(res => (res.ok ? res.text() : ''))
+                    .catch(() => '')
+            )
+        );
+        // Batch insert inlined styles.
+        const frag = document.createDocumentFragment();
+        cssContents.forEach(text => {
+            if (text) {
+                const styleEl = document.createElement('style');
+                styleEl.textContent = text;
+                frag.appendChild(styleEl);
+            }
+        });
+        document.head.appendChild(frag);
+        // Remove external link elements.
+        links.forEach(link => link.remove());
+    }
+
+    /**
      * Retrieves a map of network-loaded fonts.
      * 
      * This method uses the Performance API to get all resource entries, filters out
@@ -173,6 +206,8 @@ class BeaconPreloadFonts {
      * @returns {Promise<void>} A promise that resolves when the analysis is complete.
      */
     async run() {
+        // Inline Google Fonts CSS to avoid CORS issues
+        await this.inlineGoogleFonts();
         // Wait for fonts to be loaded
         await document.fonts.ready;
         const networkLoadedFonts = this.getNetworkLoadedFonts();
