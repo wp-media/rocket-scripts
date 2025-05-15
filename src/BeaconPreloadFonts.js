@@ -14,19 +14,47 @@ class BeaconPreloadFonts {
     }
 
     /**
-     * Checks if a given font family is a system font.
+     * Checks if a font family or URL should be excluded from preloading.
      * 
-     * This method checks if the provided font family is part of the system fonts
-     * defined in the configuration. It returns true if the font family is a system
-     * font, and false otherwise.
+     * This method determines if the provided font family or any of its URLs
+     * match any exclusion patterns defined in the configuration. It checks for
+     * exact matches and substring matches for both the font family and URLs.
      * 
      * @param {string} fontFamily - The font family to check.
-     * @returns {boolean} True if the font family is a system font, false otherwise.
+     * @param {string[]} urls - Array of font file URLs to check.
+     * @returns {boolean} True if the font should be excluded, false otherwise.
      */
-    isSystemFont(fontFamily) {
-        const systemFonts = new Set(this.config.system_fonts);
-        return systemFonts.has(fontFamily);
-    }
+    isExcluded(fontFamily, urls) {
+        const exclusions = this.config.preload_fonts_exclusions;
+        const exclusionsSet = new Set(exclusions);
+        
+        // First check for exact match of fontFamily.
+        if (exclusionsSet.has(fontFamily)) {
+          return true;
+        }
+        
+        // Then check if any exclusion is a substring of fontFamily.
+        if (exclusions.some(exclusion => fontFamily.includes(exclusion))) {
+          return true;
+        }
+        
+        // Check URLs.
+        if (Array.isArray(urls) && urls.length > 0) {
+          // First check for exact matches of any URL.
+          if (urls.some(url => exclusionsSet.has(url))) {
+            return true;
+          }
+          
+          // Then check if any exclusion is a substring of any URL.
+          if (urls.some(url => 
+            exclusions.some(exclusion => url.includes(exclusion))
+          )) {
+            return true;
+          }
+        }
+        
+        return false;
+      }
 
     /**
      * Checks if an element is visible in the viewport.
@@ -193,15 +221,16 @@ class BeaconPreloadFonts {
                     style.content !== 'none' && style.content !== '""' :
                     element.textContent.trim();
 
-                if (hasContent && !this.isSystemFont(fontFamily) && stylesheetFonts[fontFamily]) {
-                    if (!hostedFonts.has(fontFamily)) {
+                if (hasContent && stylesheetFonts[fontFamily]) {
+                    let urls = stylesheetFonts[fontFamily].urls;
+                    if (!this.isExcluded(fontFamily, urls) && !hostedFonts.has(fontFamily)) {
                         hostedFonts.set(fontFamily, {
                             elements: new Set(),
-                            urls: stylesheetFonts[fontFamily].urls,
+                            urls: urls,
                             variations: stylesheetFonts[fontFamily].variations
                         });
+                        hostedFonts.get(fontFamily).elements.add(element);
                     }
-                    hostedFonts.get(fontFamily).elements.add(element);
                 }
             };
 
@@ -452,18 +481,19 @@ class BeaconPreloadFonts {
                 const style = window.getComputedStyle(element);
                 const fontInfo = getFontInfoForElement(style);
                 if (fontInfo) {
-                    if (!matches.has(fontInfo.url)) {
+                    if (!this.isExcluded(fontInfo.family, [fontInfo.url]) && !matches.has(fontInfo.url)) {
                         matches.set(fontInfo.url, {
                             elements: new Set(),
                             variations: new Set()
                         });
+
+                        matches.get(fontInfo.url).elements.add(element);
+                        matches.get(fontInfo.url).variations.add(JSON.stringify({
+                            family: fontInfo.family,
+                            weight: fontInfo.weight,
+                            style: fontInfo.style
+                        }));
                     }
-                    matches.get(fontInfo.url).elements.add(element);
-                    matches.get(fontInfo.url).variations.add(JSON.stringify({
-                        family: fontInfo.family,
-                        weight: fontInfo.weight,
-                        style: fontInfo.style
-                    }));
                 }
             }
 
@@ -472,18 +502,18 @@ class BeaconPreloadFonts {
                 if (pseudoStyle.content !== 'none' && pseudoStyle.content !== '""') {
                     const fontInfo = getFontInfoForElement(pseudoStyle);
                     if (fontInfo) {
-                        if (!matches.has(fontInfo.url)) {
+                        if (!this.isExcluded(fontInfo.family, [fontInfo.url]) && !matches.has(fontInfo.url)) {
                             matches.set(fontInfo.url, {
                                 elements: new Set(),
                                 variations: new Set()
                             });
+                            matches.get(fontInfo.url).elements.add(element);
+                            matches.get(fontInfo.url).variations.add(JSON.stringify({
+                                family: fontInfo.family,
+                                weight: fontInfo.weight,
+                                style: fontInfo.style
+                            }));
                         }
-                        matches.get(fontInfo.url).elements.add(element);
-                        matches.get(fontInfo.url).variations.add(JSON.stringify({
-                            family: fontInfo.family,
-                            weight: fontInfo.weight,
-                            style: fontInfo.style
-                        }));
                     }
                 }
             });
