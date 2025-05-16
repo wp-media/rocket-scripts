@@ -467,4 +467,51 @@ describe('BeaconPreloadFonts', () => {
             assert.strictEqual(result['Duplicate'].variations.length, 2, 'Should have two variations');
           });
     });
+
+    describe('inlineGoogleFonts', () => {
+        let beacon;
+        let fetchStub;
+        beforeEach(() => {
+            beacon = new BeaconPreloadFonts({}, { logMessage: () => {} });
+            fetchStub = sinon.stub(global, 'fetch');
+        });
+        afterEach(() => {
+            sinon.restore();
+        });
+
+        it('should return early when no Google Fonts links are present', async () => {
+            sinon.stub(document, 'querySelectorAll').returns([]);
+            await beacon.inlineGoogleFonts();
+            sinon.assert.notCalled(fetchStub);
+        });
+
+        it('should fetch CSS, inline styles, and remove link elements', async () => {
+            // Prepare fake link elements
+            const linkA = { href: 'https://fonts.googleapis.com/a', remove: sinon.spy() };
+            const linkB = { href: 'https://fonts.googleapis.com/b', remove: sinon.spy() };
+            sinon.stub(document, 'querySelectorAll').returns([linkA, linkB]);
+            // Stub fetch responses
+            fetchStub.withArgs('https://fonts.googleapis.com/a').resolves({ ok: true, text: () => Promise.resolve('CSS_A') });
+            fetchStub.withArgs('https://fonts.googleapis.com/b').resolves({ ok: true, text: () => Promise.resolve('CSS_B') });
+            // Prepare a fragment and override document.createDocumentFragment
+            const frag = { children: [], appendChild(node) { this.children.push(node); } };
+            document.createDocumentFragment = () => frag;
+            // Stub head.appendChild
+            document.head = { appendChild: sinon.spy() };
+
+            await beacon.inlineGoogleFonts();
+            // Ensure fetch called for each href
+            sinon.assert.calledWith(fetchStub, 'https://fonts.googleapis.com/a');
+            sinon.assert.calledWith(fetchStub, 'https://fonts.googleapis.com/b');
+            // Two style nodes in fragment
+            assert.strictEqual(frag.children.length, 2);
+            assert.strictEqual(frag.children[0].textContent, 'CSS_A');
+            assert.strictEqual(frag.children[1].textContent, 'CSS_B');
+            // Single append to head
+            sinon.assert.calledOnce(document.head.appendChild);
+            // Links removed
+            sinon.assert.calledOnce(linkA.remove);
+            sinon.assert.calledOnce(linkB.remove);
+        });
+    });
 });
