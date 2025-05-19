@@ -323,46 +323,48 @@ class BeaconPreloadFonts {
     getFontFaceRules() {
         const stylesheetFonts = {};
 
-        Array.from(document.styleSheets).forEach((sheet) => {
-            try {
-                Array.from(sheet.cssRules || []).forEach((rule) => {
-                    if (rule instanceof CSSFontFaceRule) {
-                        const src = rule.style.getPropertyValue('src');
-                        const fontFamily = rule.style.getPropertyValue('font-family')
-                            .replace(/['"]+/g, '')
-                            .trim();
-                        const weight = rule.style.getPropertyValue('font-weight') || '400';
-                        const style = rule.style.getPropertyValue('font-style') || 'normal';
-                        
-                        if (!stylesheetFonts[fontFamily]) {
-                            stylesheetFonts[fontFamily] = {
-                                urls: [],
-                                variations: new Set()
-                            };
+        Array.from(Array.from(document.styleSheets))
+            .filter(sheet => !sheet.href || new URL(sheet.href).origin === location.origin)
+            .forEach((sheet) => {
+                try {
+                    Array.from(sheet.cssRules || []).forEach((rule) => {
+                        if (rule instanceof CSSFontFaceRule) {
+                            const src = rule.style.getPropertyValue('src');
+                            const fontFamily = rule.style.getPropertyValue('font-family')
+                                .replace(/['"]+/g, '')
+                                .trim();
+                            const weight = rule.style.getPropertyValue('font-weight') || '400';
+                            const style = rule.style.getPropertyValue('font-style') || 'normal';
+
+                            if (!stylesheetFonts[fontFamily]) {
+                                stylesheetFonts[fontFamily] = {
+                                    urls: [],
+                                    variations: new Set()
+                                };
+                            }
+
+                            const urls = src.match(/url\(['"]?([^'"]+)['"]?\)/g) || [];
+                            urls.forEach((urlMatch) => {
+                                let rawUrl = urlMatch.match(/url\(['"]?([^'"]+)['"]?\)/)[1];
+                                // Reconstruct url to absolute if stylesheet is not internal.
+                                if (sheet.href) {
+                                    rawUrl = new URL(rawUrl, sheet.href).href;
+                                }
+                                const normalizedUrl = this.cleanUrl(rawUrl);
+                                if (!stylesheetFonts[fontFamily].urls.includes(normalizedUrl)) {
+                                    stylesheetFonts[fontFamily].urls.push(normalizedUrl);
+                                    stylesheetFonts[fontFamily].variations.add(JSON.stringify({
+                                        weight,
+                                        style
+                                    }));
+                                }
+                            });
                         }
-                        
-                        const urls = src.match(/url\(['"]?([^'"]+)['"]?\)/g) || [];
-                        urls.forEach((urlMatch) => {
-                            let rawUrl = urlMatch.match(/url\(['"]?([^'"]+)['"]?\)/)[1];
-                            // Reconstruct url to absolute if stylesheet is not internal.
-                            if (sheet.href) {
-                                rawUrl = new URL(rawUrl, sheet.href).href;
-                            }
-                            const normalizedUrl = this.cleanUrl(rawUrl);
-                            if (!stylesheetFonts[fontFamily].urls.includes(normalizedUrl)) {
-                                stylesheetFonts[fontFamily].urls.push(normalizedUrl);
-                                stylesheetFonts[fontFamily].variations.add(JSON.stringify({
-                                    weight,
-                                    style
-                                }));
-                            }
-                        });
-                    }
-                });
-            } catch (e) { 
-                this.logger.logMessage(e);
-             }
-        });
+                    });
+                } catch (e) {
+                    this.logger.logMessage(e);
+                }
+            });
 
         Object.values(stylesheetFonts).forEach(fontData => {
             fontData.variations = Array.from(fontData.variations).map(v => JSON.parse(v));
