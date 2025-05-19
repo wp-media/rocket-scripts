@@ -18,8 +18,8 @@ describe('BeaconPreconnectExternalDomain', function () {
 
         const config = {
             preconnect_external_domain_exclusions: [
-                'rel="nofolllow',
-                'excluded.com'
+                "rel=\"nofolllow\"",
+                "excluded.com"
             ],
             preconnect_external_domain_elements: ['script', 'link', 'iframe'],
         };
