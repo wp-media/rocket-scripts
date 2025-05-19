@@ -468,50 +468,105 @@ describe('BeaconPreloadFonts', () => {
           });
     });
 
-    describe('inlineGoogleFonts', () => {
-        let beacon;
-        let fetchStub;
+    describe('_initializeExternalFontSheets', () => {
+        it('should set externalParsedSheets and externalParsedPairs from externalStylesheetsDoc', async () => {
+            const mockSheets = [{ cssRules: [] }];
+            const mockPairs = { 'https://fonts.example.com/font.woff2': [{ family: 'MockFont', weight: '400', style: 'normal' }] };
+            const externalStylesheetsDocStub = sinon.stub(beaconPreloadFonts, 'externalStylesheetsDoc').resolves({
+                styleSheets: mockSheets,
+                fontPairs: mockPairs
+            });
+
+            await beaconPreloadFonts._initializeExternalFontSheets();
+
+            assert.deepStrictEqual(beaconPreloadFonts.externalParsedSheets, mockSheets, 'externalParsedSheets should be set');
+            assert.deepStrictEqual(beaconPreloadFonts.externalParsedPairs, mockPairs, 'externalParsedPairs should be set');
+            assert.ok(loggerMock.logMessage.calledWith('Initializing external font stylesheets...'));
+            assert.ok(loggerMock.logMessage.calledWith('Successfully parsed 1 external font stylesheets.'));
+
+            externalStylesheetsDocStub.restore();
+        });
+
+        it('should handle errors and reset externalParsedSheets to empty array', async () => {
+            const error = new Error('Test error');
+            const externalStylesheetsDocStub = sinon.stub(beaconPreloadFonts, 'externalStylesheetsDoc').rejects(error);
+
+            await beaconPreloadFonts._initializeExternalFontSheets();
+
+            assert.deepStrictEqual(beaconPreloadFonts.externalParsedSheets, [], 'externalParsedSheets should be empty array on error');
+            assert.ok(loggerMock.logMessage.calledWith('Error initializing external font stylesheets:', error));
+
+            externalStylesheetsDocStub.restore();
+        });
+    });
+
+    describe('externalStylesheetsDoc', () => {
+        let originalQuerySelectorAll;
+        let originalFetch;
+        let originalCSSStyleSheet;
         beforeEach(() => {
-            beacon = new BeaconPreloadFonts({}, { logMessage: () => {} });
-            fetchStub = sinon.stub(global, 'fetch');
+            // Mock CSSRule.FONT_FACE_RULE
+            global.CSSRule = { FONT_FACE_RULE: 5 };
+            // Mock document.querySelectorAll to return fake link elements
+            originalQuerySelectorAll = global.document.querySelectorAll;
+            global.document.querySelectorAll = sinon.stub().returns([
+                { href: 'https://fonts.googleapis.com/css?family=Roboto', rel: 'stylesheet' }
+            ]);
+
+            // Mock fetch to return a fake CSS response
+            originalFetch = global.fetch;
+            global.fetch = sinon.stub().resolves({
+                ok: true,
+                text: () => Promise.resolve('@font-face { font-family: "Roboto"; src: url("https://fonts.gstatic.com/s/roboto.woff2"); font-weight: 400; font-style: normal; }')
+            });
+
+            // Mock CSSStyleSheet and replaceSync
+            originalCSSStyleSheet = global.CSSStyleSheet;
+            global.CSSStyleSheet = function() {
+                this.rules = [];
+                this.replaceSync = function(cssText) {
+                    // Simulate parsing CSS text into cssRules
+                    this.cssRules = [{
+                        type: 5, // CSSRule.FONT_FACE_RULE
+                        style: {
+                            getPropertyValue: (prop) => {
+                                if (prop === 'font-family') return 'Roboto';
+                                if (prop === 'src') return 'url("https://fonts.gstatic.com/s/roboto.woff2")';
+                                if (prop === 'font-weight') return '400';
+                                if (prop === 'font-style') return 'normal';
+                                return '';
+                            }
+                        }
+                    }];
+                };
+            };
         });
+
         afterEach(() => {
-            sinon.restore();
+            global.document.querySelectorAll = originalQuerySelectorAll;
+            global.fetch = originalFetch;
+            global.CSSStyleSheet = originalCSSStyleSheet;
         });
 
-        it('should return early when no Google Fonts links are present', async () => {
-            sinon.stub(document, 'querySelectorAll').returns([]);
-            await beacon.inlineGoogleFonts();
-            sinon.assert.notCalled(fetchStub);
+        it('should fetch, parse, and return external font CSS as styleSheets and fontPairs', async () => {
+            const result = await beaconPreloadFonts.externalStylesheetsDoc();
+            // Should have one stylesheet with cssRules
+            assert.strictEqual(result.styleSheets.length, 1);
+            assert.ok(Array.isArray(result.styleSheets));
+            // Should have fontPairs with the correct structure
+            assert.ok(result.fontPairs['https://fonts.gstatic.com/s/roboto.woff2']);
+            assert.deepStrictEqual(result.fontPairs['https://fonts.gstatic.com/s/roboto.woff2'][0], {
+                family: 'Roboto',
+                weight: '400',
+                style: 'normal'
+            });
         });
 
-        it('should fetch CSS, inline styles, and remove link elements', async () => {
-            // Prepare fake link elements
-            const linkA = { href: 'https://fonts.googleapis.com/a', remove: sinon.spy() };
-            const linkB = { href: 'https://fonts.googleapis.com/b', remove: sinon.spy() };
-            sinon.stub(document, 'querySelectorAll').returns([linkA, linkB]);
-            // Stub fetch responses
-            fetchStub.withArgs('https://fonts.googleapis.com/a').resolves({ ok: true, text: () => Promise.resolve('CSS_A') });
-            fetchStub.withArgs('https://fonts.googleapis.com/b').resolves({ ok: true, text: () => Promise.resolve('CSS_B') });
-            // Prepare a fragment and override document.createDocumentFragment
-            const frag = { children: [], appendChild(node) { this.children.push(node); } };
-            document.createDocumentFragment = () => frag;
-            // Stub head.appendChild
-            document.head = { appendChild: sinon.spy() };
-
-            await beacon.inlineGoogleFonts();
-            // Ensure fetch called for each href
-            sinon.assert.calledWith(fetchStub, 'https://fonts.googleapis.com/a');
-            sinon.assert.calledWith(fetchStub, 'https://fonts.googleapis.com/b');
-            // Two style nodes in fragment
-            assert.strictEqual(frag.children.length, 2);
-            assert.strictEqual(frag.children[0].textContent, 'CSS_A');
-            assert.strictEqual(frag.children[1].textContent, 'CSS_B');
-            // Single append to head
-            sinon.assert.calledOnce(document.head.appendChild);
-            // Links removed
-            sinon.assert.calledOnce(linkA.remove);
-            sinon.assert.calledOnce(linkB.remove);
+        it('should return empty arrays/objects if no external links are found', async () => {
+            global.document.querySelectorAll = sinon.stub().returns([]);
+            const result = await beaconPreloadFonts.externalStylesheetsDoc();
+            assert.deepStrictEqual(result.styleSheets, []);
+            assert.deepStrictEqual(result.fontPairs, {});
         });
     });
 });
