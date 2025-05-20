@@ -148,10 +148,17 @@ describe('BeaconPreloadFonts', () => {
     });
 
     describe('cleanUrl', () => {
+
         it('should clean the URL correctly', () => {
             const url = 'http://example.com/font.woff2?query=123#fragment';
             const cleanedUrl = beaconPreloadFonts.cleanUrl(url);
             assert.strictEqual(cleanedUrl, 'http://example.com/font.woff2');
+        });
+
+        it('should preserve special and non-latin characters in the path', () => {
+            const url = 'http://example.com/fonts/Fonté-ßpecial.woff2?ver=1.2.3#frag';
+            const cleanedUrl = beaconPreloadFonts.cleanUrl(url);
+            assert.strictEqual(cleanedUrl, 'http://example.com/fonts/Font%C3%A9-%C3%9Fpecial.woff2');
         });
 
         it('should return the original URL if it fails to parse', () => {
