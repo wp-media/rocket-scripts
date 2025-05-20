@@ -18,8 +18,8 @@ describe('BeaconPreconnectExternalDomain', function () {
 
         const config = {
             preconnect_external_domain_exclusions: [
-                { type: 'attribute', key: 'rel', value: 'nofollow' },
-                { type: 'domain', value: 'excluded.com' },
+                "rel=\"nofolllow\"",
+                "excluded.com"
             ],
             preconnect_external_domain_elements: ['script', 'link', 'iframe'],
         };
@@ -38,11 +38,13 @@ describe('BeaconPreconnectExternalDomain', function () {
                 src: 'https://valid.com/script.js',
                 tagName: 'SCRIPT',
                 getAttribute: (key) => null,
+                get outerHTML() { return '<script src="https://valid.com/script.js"></script>'; },
             },
             {
                 src: 'https://another-valid.com/embed.js',
                 tagName: 'IFRAME',
                 getAttribute: (key) => null,
+                get outerHTML() { return '<iframe src="https://another-valid.com/embed.js"></iframe>'; },
             },
         ]);
 
@@ -61,6 +63,7 @@ describe('BeaconPreconnectExternalDomain', function () {
                 src: 'https://excluded.com/script.js',
                 tagName: 'SCRIPT',
                 getAttribute: (key) => (key === 'rel' ? 'nofollow' : null),
+                get outerHTML() { return '<script src="https://excluded.com/script.js"></script>'; },
             },
         ]);
 
@@ -68,7 +71,7 @@ describe('BeaconPreconnectExternalDomain', function () {
 
         assert(loggerMock.logMessage.calledOnce);
         assert.deepStrictEqual(instance.excludedItems, new Set([
-            { domain: 'excluded.com', elementType: 'script', reason: 'rel=nofollow' },
+            { domain: 'excluded.com', elementType: 'script' },
         ]));
     });
 
@@ -78,6 +81,7 @@ describe('BeaconPreconnectExternalDomain', function () {
                 src: 'https://excluded.com/script.js',
                 tagName: 'SCRIPT',
                 getAttribute: () => null,
+                get outerHTML() { return '<script src="https://excluded.com/script.js"></script>'; },
             },
         ]);
 
@@ -85,7 +89,7 @@ describe('BeaconPreconnectExternalDomain', function () {
 
         assert(loggerMock.logMessage.calledOnce);
         assert.deepStrictEqual(instance.excludedItems, new Set([
-            { domain: 'excluded.com', elementType: 'script', reason: 'domain-partial=excluded.com' },
+            { domain: 'excluded.com', elementType: 'script' },
         ]));
     });
 });
