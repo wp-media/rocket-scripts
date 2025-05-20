@@ -365,7 +365,7 @@ describe('BeaconPreloadFonts', () => {
             const mockCSSFontFaceRule3 = createMockFontFaceRule('Open Sans', 'url("fonts/opensans.woff2")', '400', 'normal');
             
             const mockStyleSheet = {
-                href: 'https://example.com/styles.css',
+                href: null,
                 cssRules: [
                 mockCSSFontFaceRule1,
                 { type: 1 }, // Some other rule type
