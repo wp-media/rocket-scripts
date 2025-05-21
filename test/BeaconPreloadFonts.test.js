@@ -33,7 +33,8 @@ describe('BeaconPreloadFonts', () => {
         };
         const config = {
             system_fonts: ['Arial', 'Helvetica'],
-            font_data: {}
+            font_data: {},
+            preload_fonts_exclusions: []
         };
 
         // Initialize the class with mock config and logger
@@ -103,13 +104,30 @@ describe('BeaconPreloadFonts', () => {
         sinon.restore(); // Restore sinon mocks
     });
 
-    describe('isSystemFont', () => {
-        it('should return true for system fonts', () => {
-            assert.strictEqual(beaconPreloadFonts.isSystemFont('Arial'), true);
+    describe('isExcluded', () => {
+        it('should return true when fontFamily exactly matches exclusion', () => {
+            beaconPreloadFonts.config.preload_fonts_exclusions = ['Arial'];
+            assert.strictEqual(beaconPreloadFonts.isExcluded('Arial', []), true);
         });
-
-        it('should return false for non-system fonts', () => {
-            assert.strictEqual(beaconPreloadFonts.isSystemFont('Times New Roman'), false);
+        
+        it('should return true when fontFamily contains exclusion substring', () => {
+            beaconPreloadFonts.config.preload_fonts_exclusions = ['Ari'];
+            assert.strictEqual(beaconPreloadFonts.isExcluded('Arial', []), true);
+        });
+        
+        it('should return true when URL exactly matches exclusion', () => {
+            beaconPreloadFonts.config.preload_fonts_exclusions = ['https://example.com/font.woff2'];
+            assert.strictEqual(beaconPreloadFonts.isExcluded('CustomFont', ['https://example.com/font.woff2']), true);
+        });
+        
+        it('should return true when URL contains exclusion substring', () => {
+            beaconPreloadFonts.config.preload_fonts_exclusions = ['example.com'];
+            assert.strictEqual(beaconPreloadFonts.isExcluded('CustomFont', ['https://example.com/font.woff2']), true);
+        });
+        
+        it('should return false when neither fontFamily nor URLs match exclusions', () => {
+            beaconPreloadFonts.config.preload_fonts_exclusions = ['Roboto', 'fonts.gstatic.com'];
+            assert.strictEqual(beaconPreloadFonts.isExcluded('OpenSans', ['https://example.com/font.woff2']), false);
         });
     });
 
