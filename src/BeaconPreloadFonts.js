@@ -433,8 +433,7 @@ class BeaconPreloadFonts {
         const networkLoadedFonts = this.getNetworkLoadedFonts();
         const stylesheetFonts = this.getFontFaceRules();
         const hostedFonts = new Map();
-        const externalFontPairs = this.config.font_data;
-        const externalFontsResults = await this.processExternalFonts(externalFontPairs);
+        const externalFontsResults = await this.processExternalFonts(this.externalParsedPairs);
 
         const elements = Array.from(document.getElementsByTagName('*'))
             .filter(el => this.isElementAboveFold(el));
