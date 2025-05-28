@@ -506,22 +506,6 @@ class BeaconPreloadFonts {
                     const aboveElements = elements.filter(el => this.isElementAboveFold(el));
                     const belowElements = elements.filter(el => !this.isElementAboveFold(el));
 
-                    if (!allFonts[fontFamily]) {
-                        allFonts[fontFamily] = {
-                            type: 'hosted',
-                            variations: [],
-                            elementCount: {
-                                aboveFold: aboveElements.length,
-                                belowFold: belowElements.length,
-                                total: elements.length
-                            },
-                            urlCount: {
-                                aboveFold: new Set(),
-                                belowFold: new Set()
-                            }
-                        };
-                    }
-
                     data.variations.forEach(variation => {
                         let matchingUrl = null;
                         for (const styleUrl of data.urls) {
@@ -532,20 +516,37 @@ class BeaconPreloadFonts {
                             }
                         }
 
-                        // Add variation with correct element counts
-                        allFonts[fontFamily].variations.push({
-                            weight: variation.weight,
-                            style: variation.style,
-                            url: matchingUrl || 'File not found',
-                            elementCount: {
-                                aboveFold: aboveElements.length,
-                                belowFold: belowElements.length,
-                                total: elements.length
-                            }
-                        });
-
                         // Track URLs per location
                         if (matchingUrl) {
+                            // Only create new object if a valid matching url exist in network loaded fonts.
+                            if (!allFonts[fontFamily]) {
+                                allFonts[fontFamily] = {
+                                    type: 'hosted',
+                                    variations: [],
+                                    elementCount: {
+                                        aboveFold: aboveElements.length,
+                                        belowFold: belowElements.length,
+                                        total: elements.length
+                                    },
+                                    urlCount: {
+                                        aboveFold: new Set(),
+                                        belowFold: new Set()
+                                    }
+                                };
+                            }
+
+                            // Add variation with correct element counts
+                            allFonts[fontFamily].variations.push({
+                                weight: variation.weight,
+                                style: variation.style,
+                                url: matchingUrl,
+                                elementCount: {
+                                    aboveFold: aboveElements.length,
+                                    belowFold: belowElements.length,
+                                    total: elements.length
+                                }
+                            });
+
                             if (aboveElements.length > 0) {
                                 allFonts[fontFamily].urlCount.aboveFold.add(matchingUrl);
                             }
@@ -559,12 +560,14 @@ class BeaconPreloadFonts {
                         return;
                     }
 
-                    // Copy to hostedFontsResults
-                    hostedFontsResults[fontFamily] = {
-                        variations: allFonts[fontFamily].variations,
-                        elementCount: { ...allFonts[fontFamily].elementCount },
-                        urlCount: { ...allFonts[fontFamily].urlCount },
-                    };
+                    if (allFonts[fontFamily]) {
+                        // Copy to hostedFontsResults
+                        hostedFontsResults[fontFamily] = {
+                            variations: allFonts[fontFamily].variations,
+                            elementCount: { ...allFonts[fontFamily].elementCount },
+                            urlCount: { ...allFonts[fontFamily].urlCount },
+                        };
+                    }
                 }
             });
         }
