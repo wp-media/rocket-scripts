@@ -1,6 +1,6 @@
 {
   "name": "wp-rocket-scripts",
-  "version": "1.0.8",
+  "version": "1.2.0",
   "description": "Rocket main scripts packages",
   "type": "module",
   "main": "./src/BeaconEntryPoint.js",

@@ -411,7 +411,7 @@ describe('BeaconManager', function() {
             assert.strictEqual(sentDataObject['url'], config.url);
             assert.strictEqual(sentDataObject['is_mobile'], config.is_mobile.toString());
             // For complex types like arrays or objects, you might need to parse them before assertion
-            const expectedResults = JSON.parse(JSON.stringify({lcp : beacon.lcpBeacon.performanceImages, lrc: null}));
+            const expectedResults = JSON.parse(JSON.stringify({lcp : beacon.lcpBeacon.performanceImages, lrc: null, preload_fonts: null, preconnect_external_domain: null}));
             assert.deepStrictEqual(JSON.parse(sentDataObject['results']), expectedResults);
             assert.strictEqual(sentDataObject['status'], beacon._getFinalStatus());
             sinon.assert.calledOnce(finalizeSpy);
