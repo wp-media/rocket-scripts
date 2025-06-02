@@ -5,12 +5,18 @@ class Logger {
         this.enabled = enabled;
     }
 
-    logMessage(msg) {
+    logMessage(label, msg = '') {
         if (!this.enabled) {
-            return;
+          return;
         }
-        console.log(msg);
-    }
+  
+        if (msg !== '') {
+          console.log(label, msg);
+          return;
+        }
+  
+        console.log(label);
+      }
 
     logColoredMessage( msg, color = 'green' ) {
         if (!this.enabled) {
