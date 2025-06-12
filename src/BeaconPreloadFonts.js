@@ -351,49 +351,57 @@ class BeaconPreloadFonts {
     getFontFaceRules() {
         const stylesheetFonts = {};
 
-        Array.from(Array.from(document.styleSheets))
-            .filter(sheet => !sheet.href || new URL(sheet.href).origin === location.origin)
-            .forEach((sheet) => {
-                try {
-                    Array.from(sheet.cssRules || []).forEach((rule) => {
-                        if (rule instanceof CSSFontFaceRule) {
-                            const src = rule.style.getPropertyValue('src');
-                            const fontFamily = rule.style.getPropertyValue('font-family')
-                                .replace(/['"]+/g, '')
-                                .trim();
-                            const weight = rule.style.getPropertyValue('font-weight') || '400';
-                            const style = rule.style.getPropertyValue('font-style') || 'normal';
+        // Recursively process one stylesheet
+        const processSheet = (sheet) => {
+            try {
+                Array.from(sheet.cssRules || []).forEach((rule) => {
 
-                            if (!stylesheetFonts[fontFamily]) {
-                                stylesheetFonts[fontFamily] = {
-                                    urls: [],
-                                    variations: new Set()
-                                };
-                            }
+                    // 1) If it's a @font-face rule, collect it.
+                    if (rule instanceof CSSFontFaceRule) {
+                        const src = rule.style.getPropertyValue('src');
+                        const fontFamily = rule.style
+                            .getPropertyValue('font-family')
+                            .replace(/['"]/g, '').trim();
+                        const weight = rule.style.getPropertyValue('font-weight') || '400';
+                        const style  = rule.style.getPropertyValue('font-style')  || 'normal';
 
-                            const urls = src.match(/url\(['"]?([^'"]+)['"]?\)/g) || [];
-                            urls.forEach((urlMatch) => {
-                                let rawUrl = urlMatch.match(/url\(['"]?([^'"]+)['"]?\)/)[1];
-                                // Reconstruct url to absolute if stylesheet is not internal.
-                                if (sheet.href) {
-                                    rawUrl = new URL(rawUrl, sheet.href).href;
-                                }
-                                const normalizedUrl = this.cleanUrl(rawUrl);
-                                if (!stylesheetFonts[fontFamily].urls.includes(normalizedUrl)) {
-                                    stylesheetFonts[fontFamily].urls.push(normalizedUrl);
-                                    stylesheetFonts[fontFamily].variations.add(JSON.stringify({
-                                        weight,
-                                        style
-                                    }));
-                                }
-                            });
+                        if (!stylesheetFonts[fontFamily]) {
+                            stylesheetFonts[fontFamily] = { urls: [], variations: new Set() };
                         }
-                    });
-                } catch (e) {
-                    this.logger.logMessage(e);
-                }
-            });
 
+                        const urls = src.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
+                        urls.forEach((urlMatch) => {
+                            let rawUrl = urlMatch.match(/url\(['"]?([^'")]+)['"]?\)/)[1];
+                            if (sheet.href) {
+                                rawUrl = new URL(rawUrl, sheet.href).href;
+                            }
+                            const normalized = this.cleanUrl(rawUrl);
+                            if (!stylesheetFonts[fontFamily].urls.includes(normalized)) {
+                                stylesheetFonts[fontFamily].urls.push(normalized);
+                                stylesheetFonts[fontFamily].variations.add(
+                                    JSON.stringify({ weight, style })
+                                );
+                            }
+                        });
+
+                    // 2) If it's an @import rule, drill into its sheet too
+                    } else if (rule.styleSheet) {
+                        processSheet(rule.styleSheet);
+                    }
+
+                });
+            } catch (e) {
+                // swallow any cross-origin blocks
+                this.logger.logMessage(e);
+            }
+        };
+
+        // Start with all same-origin (or inline) stylesheets
+        Array.from(document.styleSheets)
+            .filter(sheet => !sheet.href || new URL(sheet.href).origin === location.origin)
+            .forEach(processSheet);
+
+        // Convert variation‐sets into arrays
         Object.values(stylesheetFonts).forEach(fontData => {
             fontData.variations = Array.from(fontData.variations).map(v => JSON.parse(v));
         });

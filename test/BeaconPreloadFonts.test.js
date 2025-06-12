@@ -483,7 +483,33 @@ describe('BeaconPreloadFonts', () => {
             
             assert.strictEqual(result['Duplicate'].urls.length, 2, 'Should have two different URLs');
             assert.strictEqual(result['Duplicate'].variations.length, 2, 'Should have two variations');
-          });
+        });
+
+        it('should process font-face rules in @imported stylesheets', function() {
+            // Mock CSSImportRule constructor
+            global.CSSImportRule = function() {};
+            // Create a CSSImportRule instance and attach a nested stylesheet
+            const importRule = Object.create(CSSImportRule.prototype);
+            importRule.styleSheet = {
+                href: null,
+                cssRules: [
+                    createMockFontFaceRule('ImportedFont', 'url("fonts/imported.woff2")', '300', 'italic')
+                ]
+            };
+            // Set document.styleSheets to include our import rule
+            document.styleSheets = [{
+                href: null,
+                cssRules: [importRule]
+            }];
+
+            const result = beaconPreloadFonts.getFontFaceRules();
+
+            // Assertions for imported font
+            assert.ok(result['ImportedFont'], 'Should include ImportedFont from @import');
+            assert.strictEqual(result['ImportedFont'].urls.length, 1, 'ImportedFont should have one URL');
+            assert.strictEqual(result['ImportedFont'].variations[0].weight, '300', 'ImportedFont should have correct weight');
+            assert.strictEqual(result['ImportedFont'].variations[0].style, 'italic', 'ImportedFont should have correct style');
+        });
     });
 
     describe('_initializeExternalFontSheets', () => {
