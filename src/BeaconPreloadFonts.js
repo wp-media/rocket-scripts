@@ -349,174 +349,195 @@ class BeaconPreloadFonts {
      *                  URLs and variations.
      */
     async getFontFaceRules() {
-        const stylesheetFonts = {};
-
-        // Process @import rule asynchronously
-        const processImportRule = async (rule) => {
-            try {
-                const importUrl = rule.href;
-                const response = await fetch(importUrl, { mode: 'cors' });
-                const cssText = await response.text();
-                const tempSheet = new CSSStyleSheet();
-                tempSheet.replaceSync(cssText);
-                await processSheet(tempSheet);
-            } catch (e) {
-                this.logger.logMessage(`Could not fetch @import stylesheet: ${e.message}`);
-            }
-        };
-
-        // Process CSS text to extract @import URLs using regex
-        const extractImportsFromText = (cssText) => {
-            const importRegex = /@import\s+(?:url\()?\s*['"]?([^'"\)]+)['"]?\s*\)?[^;]*;/g;
-            const imports = [];
-            let match;
-            while ((match = importRegex.exec(cssText)) !== null) {
-                imports.push(match[1]);
-            }
-            return imports;
-        };
-
-        // Recursively process one stylesheet with @import handling
-        const processSheet = async (sheet) => {
-            try {
-                if (!sheet.cssRules) {
-                    // If we can't access cssRules due to CORS, try to fetch the content directly
-                    if (sheet.href) {
-                        try {
-                            const response = await fetch(sheet.href, { mode: 'cors' });
-                            const cssText = await response.text();
-                            
-                            // Look for @import statements in the CSS text
-                            const imports = extractImportsFromText(cssText);
-                            for (const importUrl of imports) {
-                                try {
-                                    const resolvedUrl = new URL(importUrl, sheet.href).href;
-                                    const importResponse = await fetch(resolvedUrl, { mode: 'cors' });
-                                    const importCssText = await importResponse.text();
-                                    const tempSheet = new CSSStyleSheet();
-                                    tempSheet.replaceSync(importCssText);
-                                    await processSheet(tempSheet);
-                                } catch (importError) {
-                                    this.logger.logMessage(`Could not process @import ${importUrl}: ${importError.message}`);
-                                }
-                            }
-                        } catch (fetchError) {
-                            this.logger.logMessage(`Could not fetch stylesheet ${sheet.href}: ${fetchError.message}`);
-                        }
-                    }
-                    return;
-                }
-                
-                const importPromises = [];
-                
-                Array.from(sheet.cssRules || []).forEach((rule, index) => {
-                    try {
-                        // 1) If it's a @font-face rule, collect it.
-                        if (rule instanceof CSSFontFaceRule) {
-                            const src = rule.style.getPropertyValue('src');
-                            const fontFamily = rule.style
-                                .getPropertyValue('font-family')
-                                .replace(/['"]/g, '').trim();
-                            const weight = rule.style.getPropertyValue('font-weight') || '400';
-                            const style = rule.style.getPropertyValue('font-style') || 'normal';
-
-                            if (!stylesheetFonts[fontFamily]) {
-                                stylesheetFonts[fontFamily] = { urls: [], variations: new Set() };
-                            }
-
-                            const urls = src.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
-                            urls.forEach((urlMatch) => {
-                                let rawUrl = urlMatch.match(/url\(['"]?([^'")]+)['"]?\)/)[1];
-                                if (sheet && sheet.href) {
-                                    rawUrl = new URL(rawUrl, sheet.href).href;
-                                }
-                                const normalized = this.cleanUrl(rawUrl);
-                                if (!stylesheetFonts[fontFamily].urls.includes(normalized)) {
-                                    stylesheetFonts[fontFamily].urls.push(normalized);
-                                    stylesheetFonts[fontFamily].variations.add(
-                                        JSON.stringify({ weight, style })
-                                    );
-                                }
-                            });                    // 2) If it's an @import rule, process it asynchronously
-                    } else if (rule.type === 1) { // CSSRule.IMPORT_RULE
-                        importPromises.push(processImportRule(rule));
-                    } else if (rule.styleSheet) {
-                            // Legacy fallback for nested stylesheets
-                            importPromises.push(processSheet(rule.styleSheet));
-                        }
-                    } catch (ruleError) {
-                        this.logger.logMessage(`Error processing rule: ${ruleError.message}`);
-                    }
-                });
-                
-                // Wait for all @import rules to be processed
-                await Promise.all(importPromises);
-                
-            } catch (e) {
-                // CORS or other access issues - try fallback approach
-                this.logger.logMessage(`Could not access stylesheet rules: ${e.message}`);
-                
-                // Try to process as external stylesheet with potential @imports
-                if (sheet.href) {
-                    try {
-                        const response = await fetch(sheet.href, { mode: 'cors' });
-                        const cssText = await response.text();
-                        
-                        // Look for @import statements
-                        const imports = extractImportsFromText(cssText);
-                        for (const importUrl of imports) {
-                            try {
-                                const resolvedUrl = new URL(importUrl, sheet.href).href;
-                                const importResponse = await fetch(resolvedUrl, { mode: 'cors' });
-                                const importCssText = await importResponse.text();
-                                const tempSheet = new CSSStyleSheet();
-                                tempSheet.replaceSync(importCssText);
-                                await processSheet(tempSheet);
-                            } catch (importError) {
-                                this.logger.logMessage(`Could not process @import ${importUrl}: ${importError.message}`);
-                            }
-                        }
-                    } catch (fetchError) {
-                        this.logger.logMessage(`Could not fetch stylesheet for @import processing: ${fetchError.message}`);
-                    }
-                }
-            }
-        };
-
-        // Process all stylesheets (both same-origin and cross-origin)
-        const processPromises = Array.from(document.styleSheets).map(sheet => processSheet(sheet));
+      const stylesheetFonts = {};
+      const processedUrls = new Set(); // Track processed URLs to prevent infinite loops
+      
+      const processFontFaceRule = (rule, baseHref = null) => {
+        const src = rule.style.getPropertyValue("src");
+        const fontFamily = rule.style.getPropertyValue("font-family").replace(/['"]/g, "").trim();
+        const weight = rule.style.getPropertyValue("font-weight") || "400";
+        const style = rule.style.getPropertyValue("font-style") || "normal";
         
-        // Also process inline styles that might contain @import
-        const styleElements = document.querySelectorAll('style');
-        for (const styleElement of styleElements) {
-            const cssText = styleElement.textContent;
-            const imports = extractImportsFromText(cssText);
-            
-            for (const importUrl of imports) {
-                processPromises.push((async () => {
-                    try {
-                        const response = await fetch(importUrl, { mode: 'cors' });
-                        const importCssText = await response.text();
-                        const tempSheet = new CSSStyleSheet();
-                        tempSheet.replaceSync(importCssText);
-                        await processSheet(tempSheet);
-                    } catch (error) {
-                        this.logger.logMessage(`Could not process inline @import ${importUrl}: ${error.message}`);
-                    }
-                })());
-            }
+        if (!stylesheetFonts[fontFamily]) {
+          stylesheetFonts[fontFamily] = { urls: [], variations: /* @__PURE__ */ new Set() };
         }
         
-        await Promise.all(processPromises);
-
-        // Convert variation‐sets into arrays
-        Object.values(stylesheetFonts).forEach(fontData => {
-            if (fontData.variations && typeof fontData.variations.values === 'function') {
-                fontData.variations = Array.from(fontData.variations).map(v => JSON.parse(v));
-            }
+        const urls = src.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
+        urls.forEach((urlMatch) => {
+          let rawUrl = urlMatch.match(/url\(['"]?([^'")]+)['"]?\)/)[1];
+          if (baseHref) {
+            rawUrl = new URL(rawUrl, baseHref).href;
+          }
+          const normalized = this.cleanUrl(rawUrl);
+          if (!stylesheetFonts[fontFamily].urls.includes(normalized)) {
+            stylesheetFonts[fontFamily].urls.push(normalized);
+            stylesheetFonts[fontFamily].variations.add(
+              JSON.stringify({ weight, style })
+            );
+          }
         });
+      };
 
-        return stylesheetFonts;
+      const processImportRule = async (rule) => {
+        try {
+          const importUrl = rule.href;
+          
+          // Prevent infinite loops by checking if URL already processed
+          if (processedUrls.has(importUrl)) {
+            return;
+          }
+          processedUrls.add(importUrl);
+          
+          const response = await fetch(importUrl, { mode: 'cors' });
+          if (!response.ok) {
+            this.logger.logMessage(`Failed to fetch @import CSS: ${response.status}`);
+            return;
+          }
+          
+          const cssText = await response.text();
+          const tempSheet = new CSSStyleSheet();
+          tempSheet.replaceSync(cssText);
+          
+          // Process the imported stylesheet
+          Array.from(tempSheet.cssRules || []).forEach((importedRule) => {
+            if (importedRule instanceof CSSFontFaceRule) {
+              processFontFaceRule(importedRule, importUrl);
+            }
+          });
+        } catch (error) {
+          this.logger.logMessage(`Error processing @import rule: ${error.message}`);
+        }
+      };
+
+      const processSheet = async (sheet) => {
+        try {
+          const rules = Array.from(sheet.cssRules || []);
+          
+          for (const rule of rules) {
+            if (rule instanceof CSSFontFaceRule) {
+              processFontFaceRule(rule, sheet.href);
+            } else if (rule instanceof CSSImportRule) {
+              if (rule.styleSheet) {
+                await processSheet(rule.styleSheet);
+              } else {
+                await processImportRule(rule);
+              }
+            } else if (rule.styleSheet) {
+              await processSheet(rule.styleSheet);
+            }
+          }
+        } catch (e) {
+          // If we can't access cssRules due to CORS, try to process the stylesheet content directly
+          if (e.name === 'SecurityError' && sheet.href) {
+            // Prevent infinite loops for CORS fallback too
+            if (processedUrls.has(sheet.href)) {
+              return;
+            }
+            processedUrls.add(sheet.href);
+            
+            try {
+              const response = await fetch(sheet.href, { mode: 'cors' });
+              if (response.ok) {
+                const cssText = await response.text();
+                
+                // Create a temporary stylesheet to parse the CSS
+                const tempSheet = new CSSStyleSheet();
+                tempSheet.replaceSync(cssText);
+                
+                // Process any @font-face rules in the external CSS
+                Array.from(tempSheet.cssRules || []).forEach((rule) => {
+                  if (rule instanceof CSSFontFaceRule) {
+                    processFontFaceRule(rule, sheet.href);
+                  }
+                });
+                
+                // Look for @import statements and process them
+                const importRegex = /@import\s+url\(['"]?([^'")]+)['"]?\);?/g;
+                let importMatch;
+                while ((importMatch = importRegex.exec(cssText)) !== null) {
+                  const importUrl = new URL(importMatch[1], sheet.href).href;
+                  
+                  // Prevent infinite loops
+                  if (processedUrls.has(importUrl)) {
+                    continue;
+                  }
+                  processedUrls.add(importUrl);
+                  
+                  try {
+                    const importResponse = await fetch(importUrl, { mode: 'cors' });
+                    if (importResponse.ok) {
+                      const importCssText = await importResponse.text();
+                      const tempImportSheet = new CSSStyleSheet();
+                      tempImportSheet.replaceSync(importCssText);
+                      
+                      Array.from(tempImportSheet.cssRules || []).forEach((importedRule) => {
+                        if (importedRule instanceof CSSFontFaceRule) {
+                          processFontFaceRule(importedRule, importUrl);
+                        }
+                      });
+                    }
+                  } catch (importError) {
+                    this.logger.logMessage(`Error fetching @import ${importUrl}: ${importError.message}`);
+                  }
+                }
+              }
+            } catch (fetchError) {
+              this.logger.logMessage(`Error fetching stylesheet ${sheet.href}: ${fetchError.message}`);
+            }
+          } else {
+            this.logger.logMessage(`Error processing stylesheet: ${e.message}`);
+          }
+        }
+      };
+
+      // Process all stylesheets
+      const sheets = Array.from(document.styleSheets);
+      for (const sheet of sheets) {
+        await processSheet(sheet);
+      }
+
+      // Process inline <style> elements that may contain @import statements
+      const inlineStyleElements = document.querySelectorAll('style');
+      for (const styleElement of inlineStyleElements) {
+        const cssText = styleElement.textContent || styleElement.innerHTML || '';
+        
+        // Look for @import statements in the inline CSS
+        const importRegex = /@import\s+url\s*\(\s*['"]?([^'")]+)['"]?\s*\)\s*;?/g;
+        let importMatch;
+        
+        while ((importMatch = importRegex.exec(cssText)) !== null) {
+          const importUrl = importMatch[1];
+          
+          // Prevent infinite loops
+          if (processedUrls.has(importUrl)) {
+            continue;
+          }
+          processedUrls.add(importUrl);
+          
+          try {
+            const response = await fetch(importUrl, { mode: 'cors' });
+            if (response.ok) {
+              const importCssText = await response.text();
+              const tempSheet = new CSSStyleSheet();
+              tempSheet.replaceSync(importCssText);
+              
+              Array.from(tempSheet.cssRules || []).forEach((importedRule) => {
+                if (importedRule instanceof CSSFontFaceRule) {
+                  processFontFaceRule(importedRule, importUrl);
+                }
+              });
+            }
+          } catch (importError) {
+            this.logger.logMessage(`Error fetching inline @import ${importUrl}: ${importError.message}`);
+          }
+        }
+      }
+
+      Object.values(stylesheetFonts).forEach((fontData) => {
+        fontData.variations = Array.from(fontData.variations).map((v) => JSON.parse(v));
+      });
+      
+      return stylesheetFonts;
     }
 
     /**

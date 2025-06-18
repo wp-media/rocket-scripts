@@ -77,6 +77,34 @@ describe('BeaconPreloadFonts', () => {
         };
 
         global.CSSFontFaceRule = function() {};
+        global.CSSImportRule = function() {};
+        global.CSSStyleSheet = function() {
+            this.cssRules = [];
+            this.replaceSync = function(cssText) {
+                // Mock implementation - could parse cssText if needed
+            };
+        };
+
+        // Mock fetch for @import processing
+        global.fetch = sinon.stub().resolves({
+            ok: true,
+            text: () => Promise.resolve('@font-face { font-family: "MockFont"; src: url("mock.woff2"); }')
+        });
+
+        // Mock URL constructor
+        global.URL = function(url, base) {
+            if (base) {
+                // Simple URL resolution for testing
+                if (url.startsWith('http')) {
+                    this.href = url;
+                } else {
+                    const baseUrl = base.endsWith('/') ? base : base + '/';
+                    this.href = baseUrl + url;
+                }
+            } else {
+                this.href = url;
+            }
+        };
 
         // Mocking the DOM elements and their styles
         document.body.innerHTML = `
@@ -647,8 +675,10 @@ describe('BeaconPreloadFonts', () => {
             const mockExternalStylesheet = {
                 href: 'https://example.com/styles.css',
                 get cssRules() {
-                    // Simulate CORS error
-                    throw new Error('Cannot access cssRules of cross-origin stylesheet');
+                    // Simulate CORS/SecurityError
+                    const error = new Error('Cannot access cssRules of cross-origin stylesheet');
+                    error.name = 'SecurityError';
+                    throw error;
                 }
             };
 
@@ -722,7 +752,11 @@ describe('BeaconPreloadFonts', () => {
             // Mock stylesheet with CORS error to trigger fallback
             document.styleSheets = [{
                 href: 'https://example.com/main.css',
-                get cssRules() { throw new Error('CORS'); }
+                get cssRules() { 
+                    const error = new Error('CORS');
+                    error.name = 'SecurityError';
+                    throw error;
+                }
             }];
 
             beaconPreloadFonts.cleanUrl = sinon.stub().callsFake(url => url.split('?')[0]);
