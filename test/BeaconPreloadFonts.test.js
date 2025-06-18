@@ -370,13 +370,43 @@ describe('BeaconPreloadFonts', () => {
     });
 
     describe('getFontFaceRules', () => {
-        it('should return an empty object when no stylesheets exist', function() {
+        let originalFetch;
+        let originalCSSStyleSheet;
+        let originalURL;
+
+        beforeEach(() => {
+            // Store original globals
+            originalFetch = global.fetch;
+            originalCSSStyleSheet = global.CSSStyleSheet;
+            originalURL = global.URL;
+        });
+
+        afterEach(() => {
+            // Restore original globals
+            if (originalFetch) {
+                global.fetch = originalFetch;
+            } else {
+                delete global.fetch;
+            }
+            if (originalCSSStyleSheet) {
+                global.CSSStyleSheet = originalCSSStyleSheet;
+            } else {
+                delete global.CSSStyleSheet;
+            }
+            if (originalURL) {
+                global.URL = originalURL;
+            } else {
+                delete global.URL;
+            }
+        });
+
+        it('should return an empty object when no stylesheets exist', async function() {
             document.styleSheets = [];
-            const result = beaconPreloadFonts.getFontFaceRules();
+            const result = await beaconPreloadFonts.getFontFaceRules();
             assert.deepStrictEqual(result, {});
         });
         
-        it('should process multiple font-face rules correctly', function() {
+        it('should process multiple font-face rules correctly', async function() {
             // Create mock stylesheets with font-face rules
             const mockCSSFontFaceRule1 = createMockFontFaceRule('Roboto', 'url("fonts/roboto.woff2")', '700', 'normal');
             const mockCSSFontFaceRule2 = createMockFontFaceRule('Roboto', 'url("fonts/roboto-italic.woff2")', '700', 'italic');
@@ -396,8 +426,7 @@ describe('BeaconPreloadFonts', () => {
 
             beaconPreloadFonts.cleanUrl = sinon.stub().callsFake(url => url.split('?')[0]);
             
-            const result = beaconPreloadFonts.getFontFaceRules();
-            console.log('result', result);
+            const result = await beaconPreloadFonts.getFontFaceRules();
             
             // Verify correct parsing
             assert.strictEqual(Object.keys(result).length, 2, 'Should have two font families');
@@ -415,7 +444,7 @@ describe('BeaconPreloadFonts', () => {
             assert.ok(beaconPreloadFonts.cleanUrl.called, 'cleanUrl should be called');
         });
         
-        it('should handle multiple src URLs in one font-face rule', function() {
+        it('should handle multiple src URLs in one font-face rule', async function() {
             const multipleSrcRule = createMockFontFaceRule(
                 'MyCustomFont3', 
                 'url("fonts/font.woff2") format("woff2"), url("fonts/font.woff") format("woff"), url("fonts/font.ttf") format("truetype")',
@@ -428,13 +457,13 @@ describe('BeaconPreloadFonts', () => {
                 cssRules: [multipleSrcRule]
             }];
             
-            const result = beaconPreloadFonts.getFontFaceRules();
+            const result = await beaconPreloadFonts.getFontFaceRules();
             
             assert.ok(result['MyCustomFont3'], 'Should have MyCustomFont3');
             assert.strictEqual(result['MyCustomFont3'].urls.length, 3, 'Should extract all 3 URLs');
         });
         
-        it('should convert relative URLs to absolute when stylesheet has href', function() {
+        it('should convert relative URLs to absolute when stylesheet has href', async function() {
             const fontFaceRule = createMockFontFaceRule('Arial', 'url("../fonts/arial.woff2")', '400', 'normal');
             
             document.styleSheets = [{
@@ -446,13 +475,13 @@ describe('BeaconPreloadFonts', () => {
                 href: 'https://example.com/fonts/arial.woff2'
             });
             
-            const result = beaconPreloadFonts.getFontFaceRules();
+            const result = await beaconPreloadFonts.getFontFaceRules();
             
             assert.strictEqual(result['Arial'].urls[0], 'https://example.com/fonts/arial.woff2', 
                                 'Should convert relative URL to absolute');
         });
         
-        it('should handle errors when accessing cross-origin stylesheets', function() {
+        it('should handle errors when accessing cross-origin stylesheets', async function() {
             // Create a stylesheet that throws error when accessing cssRules
             const errorStyleSheet = {
                 get cssRules() {
@@ -462,14 +491,14 @@ describe('BeaconPreloadFonts', () => {
             
             document.styleSheets = [errorStyleSheet];
             
-            const result = beaconPreloadFonts.getFontFaceRules();
+            const result = await beaconPreloadFonts.getFontFaceRules();
             
             // Should log error and return empty object
             assert.ok(beaconPreloadFonts.logger.logMessage.called, 'Should log the error');
             assert.deepStrictEqual(result, {}, 'Should return empty object on error');
         });
         
-        it('should deduplicate URLs for the same font family', function() {
+        it('should deduplicate URLs for the same font family', async function() {
             // Create two rules with DIFFERENT URLs
             const rule1 = createMockFontFaceRule('Duplicate', 'url("fonts/normal.woff2")', '400', 'normal');
             const rule2 = createMockFontFaceRule('Duplicate', 'url("fonts/bold.woff2")', '700', 'normal');
@@ -479,13 +508,13 @@ describe('BeaconPreloadFonts', () => {
               cssRules: [rule1, rule2]
             }];
             
-            const result = beaconPreloadFonts.getFontFaceRules();
+            const result = await beaconPreloadFonts.getFontFaceRules();
             
             assert.strictEqual(result['Duplicate'].urls.length, 2, 'Should have two different URLs');
             assert.strictEqual(result['Duplicate'].variations.length, 2, 'Should have two variations');
         });
 
-        it('should process font-face rules in @imported stylesheets', function() {
+        it('should process font-face rules in @imported stylesheets', async function() {
             // Mock CSSImportRule constructor
             global.CSSImportRule = function() {};
             // Create a CSSImportRule instance and attach a nested stylesheet
@@ -502,13 +531,211 @@ describe('BeaconPreloadFonts', () => {
                 cssRules: [importRule]
             }];
 
-            const result = beaconPreloadFonts.getFontFaceRules();
+            const result = await beaconPreloadFonts.getFontFaceRules();
 
             // Assertions for imported font
             assert.ok(result['ImportedFont'], 'Should include ImportedFont from @import');
             assert.strictEqual(result['ImportedFont'].urls.length, 1, 'ImportedFont should have one URL');
             assert.strictEqual(result['ImportedFont'].variations[0].weight, '300', 'ImportedFont should have correct weight');
             assert.strictEqual(result['ImportedFont'].variations[0].style, 'italic', 'ImportedFont should have correct style');
+        });
+
+        it('should process @import statements in inline <style> tags', async function() {
+            // Mock fetch for the @import URL
+            global.fetch = sinon.stub().resolves({
+                ok: true,
+                text: () => Promise.resolve(`
+                    @font-face {
+                        font-family: 'Inline Imported Font';
+                        src: url('https://fonts.example.com/inline-imported.woff2');
+                        font-weight: 500;
+                        font-style: normal;
+                    }
+                `)
+            });
+
+            // Create proper mock font-face rule
+            const mockFontFaceRule = createMockFontFaceRule('Inline Imported Font', 'url("https://fonts.example.com/inline-imported.woff2")', '500', 'normal');
+
+            // Mock CSSStyleSheet for the temporary sheet creation
+            global.CSSStyleSheet = sinon.stub().returns({
+                replaceSync: sinon.stub(),
+                cssRules: [mockFontFaceRule]
+            });
+
+            // Mock inline style element with @import
+            const mockStyleElement = {
+                textContent: `
+                    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700');
+                    body { font-family: 'Roboto', sans-serif; }
+                `
+            };
+
+            // Mock document.querySelectorAll for style elements
+            const originalQuerySelectorAll = document.querySelectorAll;
+            document.querySelectorAll = sinon.stub().callsFake(selector => {
+                if (selector === 'style') {
+                    return [mockStyleElement];
+                }
+                return originalQuerySelectorAll.call(document, selector);
+            });
+
+            // Empty stylesheets for this test
+            document.styleSheets = [];
+
+            beaconPreloadFonts.cleanUrl = sinon.stub().callsFake(url => url.split('?')[0]);
+
+            const result = await beaconPreloadFonts.getFontFaceRules();
+
+            // Verify the @import font was processed
+            assert.ok(result['Inline Imported Font'], 'Should have processed font from inline @import');
+            assert.strictEqual(result['Inline Imported Font'].urls.length, 1, 'Should have one URL');
+            assert.strictEqual(result['Inline Imported Font'].urls[0], 'https://fonts.example.com/inline-imported.woff2', 'Should have correct URL');
+            assert.strictEqual(result['Inline Imported Font'].variations.length, 1, 'Should have one variation');
+            assert.strictEqual(result['Inline Imported Font'].variations[0].weight, '500', 'Should have correct weight');
+
+            // Verify fetch was called for the @import URL
+            assert.ok(global.fetch.calledWith('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700'), 'Should fetch @import URL');
+
+            // Cleanup
+            document.querySelectorAll = originalQuerySelectorAll;
+        });
+
+        it('should process @import statements in external CSS files', async function() {
+            // Mock fetch for both the main CSS file and the @import URL
+            global.fetch = sinon.stub();
+            
+            // First call: fetch the main CSS file containing @import
+            global.fetch.onFirstCall().resolves({
+                ok: true,
+                text: () => Promise.resolve(`
+                    @import url('https://fonts.googleapis.com/css2?family=External+Font:wght@300;600');
+                    .my-class { color: red; }
+                `)
+            });
+
+            // Second call: fetch the @import URL
+            global.fetch.onSecondCall().resolves({
+                ok: true,
+                text: () => Promise.resolve(`
+                    @font-face {
+                        font-family: 'External Font';
+                        src: url('https://fonts.gstatic.com/external-font-300.woff2');
+                        font-weight: 300;
+                        font-style: normal;
+                    }
+                    @font-face {
+                        font-family: 'External Font';
+                        src: url('https://fonts.gstatic.com/external-font-600.woff2');
+                        font-weight: 600;
+                        font-style: normal;
+                    }
+                `)
+            });
+
+            // Create proper mock font-face rules
+            const mockFontFaceRule1 = createMockFontFaceRule('External Font', 'url("https://fonts.gstatic.com/external-font-300.woff2")', '300', 'normal');
+            const mockFontFaceRule2 = createMockFontFaceRule('External Font', 'url("https://fonts.gstatic.com/external-font-600.woff2")', '600', 'normal');
+
+            // Mock CSSStyleSheet constructor to return a sheet with our font-face rules
+            global.CSSStyleSheet = sinon.stub().returns({
+                replaceSync: sinon.stub(),
+                cssRules: [mockFontFaceRule1, mockFontFaceRule2]
+            });
+
+            // Mock external stylesheet that will trigger CORS fallback
+            const mockExternalStylesheet = {
+                href: 'https://example.com/styles.css',
+                get cssRules() {
+                    // Simulate CORS error
+                    throw new Error('Cannot access cssRules of cross-origin stylesheet');
+                }
+            };
+
+            document.styleSheets = [mockExternalStylesheet];
+
+            beaconPreloadFonts.cleanUrl = sinon.stub().callsFake(url => url.split('?')[0]);
+
+            const result = await beaconPreloadFonts.getFontFaceRules();
+
+            // Verify the @import font was processed from external CSS
+            assert.ok(result['External Font'], 'Should have processed font from external CSS @import');
+            assert.strictEqual(result['External Font'].urls.length, 2, 'Should have two URLs (300 and 600 weight)');
+            assert.ok(
+                result['External Font'].urls.includes('https://fonts.gstatic.com/external-font-300.woff2'),
+                'Should include 300 weight font URL'
+            );
+            assert.ok(
+                result['External Font'].urls.includes('https://fonts.gstatic.com/external-font-600.woff2'),
+                'Should include 600 weight font URL'
+            );
+            assert.strictEqual(result['External Font'].variations.length, 2, 'Should have two variations');
+
+            // Verify fetch was called for both the main CSS and @import URL
+            assert.ok(global.fetch.calledWith('https://example.com/styles.css'), 'Should fetch main CSS file');
+            assert.ok(
+                global.fetch.calledWith('https://fonts.googleapis.com/css2?family=External+Font:wght@300;600'),
+                'Should fetch @import URL'
+            );
+        });
+
+        it('should handle @import chains (basic level)', async function() {
+            // Note: This test verifies basic @import processing. 
+            // Full nested chain processing would require more complex implementation.
+            global.fetch = sinon.stub();
+            
+            // First call: Main CSS with @import
+            global.fetch.onFirstCall().resolves({
+                ok: true,
+                text: () => Promise.resolve(`@import url('level2.css');`)
+            });
+
+            // Second call: Level 2 CSS with font-face
+            global.fetch.onSecondCall().resolves({
+                ok: true,
+                text: () => Promise.resolve(`
+                    @font-face {
+                        font-family: 'Chain Font';
+                        src: url('chain-font.woff2');
+                        font-weight: 400;
+                        font-style: normal;
+                    }
+                `)
+            });
+
+            // Create mock font-face rule
+            const mockFontFaceRule = createMockFontFaceRule('Chain Font', 'url("https://example.com/chain-font.woff2")', '400', 'normal');
+
+            // Mock CSSStyleSheet to return the font-face rule
+            global.CSSStyleSheet = sinon.stub().returns({
+                replaceSync: sinon.stub(),
+                cssRules: [mockFontFaceRule]
+            });
+
+            // Mock URL constructor for relative URL resolution
+            const originalURL = global.URL;
+            global.URL = sinon.stub().callsFake((url, base) => {
+                if (url.startsWith('http')) return { href: url };
+                return { href: `https://example.com/${url}` };
+            });
+
+            // Mock stylesheet with CORS error to trigger fallback
+            document.styleSheets = [{
+                href: 'https://example.com/main.css',
+                get cssRules() { throw new Error('CORS'); }
+            }];
+
+            beaconPreloadFonts.cleanUrl = sinon.stub().callsFake(url => url.split('?')[0]);
+
+            const result = await beaconPreloadFonts.getFontFaceRules();
+
+            assert.ok(result['Chain Font'], 'Should process @import chain');
+            assert.strictEqual(result['Chain Font'].urls[0], 'https://example.com/chain-font.woff2', 'Should have correct URL');
+            assert.ok(global.fetch.callCount >= 2, 'Should make at least 2 fetch calls for @import chain');
+
+            // Verify the fetch calls
+            assert.ok(global.fetch.calledWith('https://example.com/main.css'), 'Should fetch main CSS');
+            assert.ok(global.fetch.calledWith('https://example.com/level2.css'), 'Should fetch level 2 CSS');
         });
     });
 
