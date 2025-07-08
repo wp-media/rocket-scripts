@@ -317,6 +317,30 @@ describe('BeaconPreloadFonts', () => {
             });
             assert.ok(loggerMock.logMessage.notCalled);
         });
+
+        // Test for regression fix: ensure theme assets are not preloaded when not in network fonts
+        it('should not include hosted fonts that are not in network loaded fonts (regression fix)', () => {
+            // This test ensures the fix for the theme assets preloading issue
+            const hostedFonts = new Map();
+            hostedFonts.set('Inter', {
+                variations: [{ weight: '400', style: 'normal' }],
+                elements: new Set([document.createElement('div')]),
+                urls: ['https://e2e.rocketlabsqa.ovh/wp-content/themes/twentytwenty/assets/fonts/inter/Inter-upright-var.woff2']
+            });
+
+            // Mock the isElementAboveFold method to return true for the element
+            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').callsFake(() => true);
+
+            // Empty network loaded fonts - theme font not actually loaded by browser
+            const networkLoadedFonts = new Map();
+            const externalFontsResults = {};
+
+            const result = beaconPreloadFonts.summarizeMatches(externalFontsResults, hostedFonts, networkLoadedFonts);
+
+            // The Inter font should NOT be included because it's not in networkLoadedFonts
+            assert.strictEqual(Object.keys(result.allFonts).length, 0, 'Should not include fonts not in network loaded fonts');
+            assert.strictEqual(Object.keys(result.hostedFonts).length, 0, 'Should not include theme fonts in hosted results');
+        });
     });
 
     describe('processExternalFonts', () => {
@@ -488,7 +512,9 @@ describe('BeaconPreloadFonts', () => {
             const result = await beaconPreloadFonts.getFontFaceRules();
             
             assert.ok(result['MyCustomFont3'], 'Should have MyCustomFont3');
-            assert.strictEqual(result['MyCustomFont3'].urls.length, 3, 'Should extract all 3 URLs');
+            // After our fix, we only extract the first URL to prevent duplicates
+            assert.strictEqual(result['MyCustomFont3'].urls.length, 1, 'Should extract only the first URL');
+            assert.strictEqual(result['MyCustomFont3'].urls[0], 'fonts/font.woff2', 'Should have the first URL from the src');
         });
         
         it('should convert relative URLs to absolute when stylesheet has href', async function() {
@@ -770,6 +796,32 @@ describe('BeaconPreloadFonts', () => {
             // Verify the fetch calls
             assert.ok(global.fetch.calledWith('https://example.com/main.css'), 'Should fetch main CSS');
             assert.ok(global.fetch.calledWith('https://example.com/level2.css'), 'Should fetch level 2 CSS');
+        });
+
+        // Test for regression fix: ensure no duplicate/corrupted URLs are returned
+        it('should extract only the first URL from font src to prevent duplicates (regression fix)', async function() {
+            // This test ensures the fix for the Playfair font duplicate URL issue
+            const fontFaceRule = createMockFontFaceRule(
+                'Playfair Display', 
+                'url("https://fonts.gstatic.com/s/playfairdisplay/v39/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDTbtPK-F2qC0usEw.woff2") format("woff2"), url("https://fonts.gstatic.com/s/playfairdisplay/v39/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtPK-F2qC0s.woff2") format("woff2")',
+                '400',
+                'normal'
+            );
+            
+            document.styleSheets = [{
+                href: null,
+                cssRules: [fontFaceRule]
+            }];
+            
+            const result = await beaconPreloadFonts.getFontFaceRules();
+            
+            assert.ok(result['Playfair Display'], 'Should have Playfair Display font');
+            assert.strictEqual(result['Playfair Display'].urls.length, 1, 'Should have only one URL to prevent duplicates');
+            assert.strictEqual(
+                result['Playfair Display'].urls[0], 
+                'https://fonts.gstatic.com/s/playfairdisplay/v39/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDTbtPK-F2qC0usEw.woff2', 
+                'Should extract only the first (complete) URL'
+            );
         });
     });
 

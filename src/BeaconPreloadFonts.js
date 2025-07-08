@@ -362,9 +362,17 @@ class BeaconPreloadFonts {
           stylesheetFonts[fontFamily] = { urls: [], variations: /* @__PURE__ */ new Set() };
         }
         
-        const urls = src.match(/url\(['"]?([^'")]+)['"]?\)/g) || [];
-        urls.forEach((urlMatch) => {
-          let rawUrl = urlMatch.match(/url\(['"]?([^'")]+)['"]?\)/)[1];
+        // Use the same URL extraction logic as _extractFirstUrlFromSrc to prevent duplicates
+        const extractFirstUrlFromSrc = (srcValue) => {
+          if (!srcValue) return null;
+          const urlMatch = srcValue.match(/url\s*\(\s*(['"]?)(.+?)\1\s*\)/);
+          return urlMatch ? urlMatch[2] : null;
+        };
+        
+        // Extract only the first URL to match the behavior of external fonts processing
+        const firstUrl = extractFirstUrlFromSrc(src);
+        if (firstUrl) {
+          let rawUrl = firstUrl;
           if (baseHref) {
             rawUrl = new URL(rawUrl, baseHref).href;
           }
@@ -375,7 +383,7 @@ class BeaconPreloadFonts {
               JSON.stringify({ weight, style })
             );
           }
-        });
+        }
       };
 
       const processImportRule = async (rule) => {
@@ -656,15 +664,10 @@ class BeaconPreloadFonts {
                                 break;
                             }
                         }
-
-                        // Fallback: Use stylesheet URLs for above-fold fonts
-                        if (!matchingUrl && aboveElements.length > 0 && data.urls.length > 0) {
-                            matchingUrl = data.urls[0];
-                        }
-
-                        // Track URLs per location
+                        
+                        // Track URLs per location ONLY if we found a matching network loaded font
                         if (matchingUrl) {
-                            // Only create new object if a valid matching url exist in network loaded fonts.
+                            // Only create new object if a valid matching url exists in network loaded fonts.
                             if (!allFonts[fontFamily]) {
                                 allFonts[fontFamily] = {
                                     type: 'hosted',
@@ -702,10 +705,7 @@ class BeaconPreloadFonts {
                         }
                     });
 
-                    if (!Object.prototype.hasOwnProperty.call(allFonts, fontFamily)) {
-                        return;
-                    }
-
+                    // Only add to hostedFontsResults if we actually found matching fonts
                     if (allFonts[fontFamily]) {
                         // Copy to hostedFontsResults
                         hostedFontsResults[fontFamily] = {
