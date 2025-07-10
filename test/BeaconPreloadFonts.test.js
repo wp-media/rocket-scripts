@@ -119,6 +119,11 @@ describe('BeaconPreloadFonts', () => {
                     display: element.style.display || 'block',
                     visibility: element.style.visibility || 'visible',
                     opacity: element.style.opacity || '1',
+                    color: element.style.color || 'rgb(0, 0, 0)',
+                    filter: element.style.filter || '',
+                    fontFamily: element.style.fontFamily || 'Arial',
+                    fontWeight: element.style.fontWeight || '400',
+                    fontStyle: element.style.fontStyle || 'normal'
                     // Add any other styles you need to mock
                 };
             }
@@ -172,6 +177,263 @@ describe('BeaconPreloadFonts', () => {
             const element = document.createElement('div');
             element.style.display = 'none';
             assert.strictEqual(beaconPreloadFonts.isElementVisible(element), false);
+        });
+
+        it('should return false for elements with transparent text', () => {
+            const element = document.createElement('div');
+            element.style.display = 'block';
+            element.style.visibility = 'visible';
+            element.style.opacity = '1';
+            
+            // Mock hasTransparentText to return true
+            sinon.stub(beaconPreloadFonts, 'hasTransparentText').returns(true);
+            
+            assert.strictEqual(beaconPreloadFonts.isElementVisible(element), false);
+            
+            // Restore the stub
+            beaconPreloadFonts.hasTransparentText.restore();
+        });
+    });
+
+    describe('hasTransparentText', () => {
+        it('should return true for elements with color: transparent', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return transparent color
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'transparent',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), true);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return true for elements with rgba color with alpha 0', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return rgba with alpha 0
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'rgba(255, 0, 0, 0)',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), true);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return true for elements with rgba color with alpha 0 and spaces', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return rgba with alpha 0 and spaces
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'rgba(255, 128, 64, 0)',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), true);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return true for elements with hsla color with alpha 0', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return hsla with alpha 0
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'hsla(120, 50%, 50%, 0)',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), true);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return true for elements with 8-digit hex color ending in 00', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return 8-digit hex with alpha 0
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: '#ff000000',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), true);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return true for elements with uppercase 8-digit hex color ending in 00', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return uppercase 8-digit hex with alpha 0
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: '#FF123A00',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), true);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return true for elements with filter: opacity(0)', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return filter with opacity(0)
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'rgb(0, 0, 0)',
+                filter: 'blur(5px) opacity(0) brightness(100%)'
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), true);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return false for elements with visible text properties', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return normal visible styles
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'rgb(0, 0, 0)',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), false);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return false for elements with rgba color with non-zero alpha', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return rgba with non-zero alpha
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'rgba(255, 0, 0, 0.5)',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), false);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return false for elements with hsla color with non-zero alpha', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return hsla with non-zero alpha
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'hsla(120, 50%, 50%, 0.8)',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), false);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return false for elements with 8-digit hex color not ending in 00', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return 8-digit hex with non-zero alpha
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: '#ff0000ff',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), false);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return false for elements with filter: opacity(1)', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return filter with opacity(1)
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'rgb(0, 0, 0)',
+                filter: 'blur(5px) opacity(1) brightness(100%)'
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), false);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should return false for elements with no filter', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return no filter
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: 'rgb(0, 0, 0)',
+                filter: 'none'
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), false);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should handle null/undefined color and filter properties safely', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return null/undefined properties
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: null,
+                filter: undefined
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), false);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
+        });
+
+        it('should handle empty color and filter properties safely', () => {
+            const element = document.createElement('div');
+            
+            // Mock getComputedStyle to return empty properties
+            const originalGetComputedStyle = window.getComputedStyle;
+            window.getComputedStyle = sinon.stub().returns({
+                color: '',
+                filter: ''
+            });
+            
+            assert.strictEqual(beaconPreloadFonts.hasTransparentText(element), false);
+            
+            // Restore original function
+            window.getComputedStyle = originalGetComputedStyle;
         });
     });
 
