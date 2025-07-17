@@ -54,10 +54,13 @@ class BeaconLcp {
         })
             .filter(item => item !== null)
             .filter(item => {
+                const style = window.getComputedStyle(item.element);
+                const isVisible = !(style.display === "none" || style.visibility === "hidden" || style.opacity === "0");
                 return (
                     item.rect.width > 0 &&
                     item.rect.height > 0 &&
-                    BeaconUtils.isIntersecting(item.rect)
+                    BeaconUtils.isIntersecting(item.rect) &&
+                    isVisible
                 );
             })
             .map(item => ({
