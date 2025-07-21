@@ -509,6 +509,112 @@ describe('BeaconPreloadFonts', () => {
         });
     });
 
+    describe('canElementBeStyledWithFontFamily', () => {
+        it('should return true for elements that can be styled with font-family', () => {
+            const element = { tagName: 'DIV' };
+            const result = beaconPreloadFonts.canElementBeStyledWithFontFamily(element);
+            assert.strictEqual(result, true);
+        });
+
+        it('should return true for text elements', () => {
+            const element = { tagName: 'P' };
+            const result = beaconPreloadFonts.canElementBeStyledWithFontFamily(element);
+            assert.strictEqual(result, true);
+        });
+
+        it('should return false for IMG elements', () => {
+            const element = { tagName: 'IMG' };
+            const result = beaconPreloadFonts.canElementBeStyledWithFontFamily(element);
+            assert.strictEqual(result, false);
+        });
+
+        it('should return false for SCRIPT elements', () => {
+            const element = { tagName: 'SCRIPT' };
+            const result = beaconPreloadFonts.canElementBeStyledWithFontFamily(element);
+            assert.strictEqual(result, false);
+        });
+
+        it('should return false for STYLE elements', () => {
+            const element = { tagName: 'STYLE' };
+            const result = beaconPreloadFonts.canElementBeStyledWithFontFamily(element);
+            assert.strictEqual(result, false);
+        });
+
+        it('should return false for META elements', () => {
+            const element = { tagName: 'META' };
+            const result = beaconPreloadFonts.canElementBeStyledWithFontFamily(element);
+            assert.strictEqual(result, false);
+        });
+
+        it('should return false for BR elements', () => {
+            const element = { tagName: 'BR' };
+            const result = beaconPreloadFonts.canElementBeStyledWithFontFamily(element);
+            assert.strictEqual(result, false);
+        });
+
+        it('should return false for deprecated FONT elements', () => {
+            const element = { tagName: 'FONT' };
+            const result = beaconPreloadFonts.canElementBeStyledWithFontFamily(element);
+            assert.strictEqual(result, false);
+        });
+    });
+
+    describe('canElementBeProcessed', () => {
+        it('should return true for elements that can be styled and are above fold', () => {
+            const element = document.createElement('div');
+            element.tagName = 'DIV';
+            document.body.appendChild(element);
+            
+            // Mock the methods to return true for both checks
+            sinon.stub(beaconPreloadFonts, 'canElementBeStyledWithFontFamily').returns(true);
+            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').returns(true);
+            
+            const result = beaconPreloadFonts.canElementBeProcessed(element);
+            assert.strictEqual(result, true);
+            
+            // Clean up
+            document.body.removeChild(element);
+            beaconPreloadFonts.canElementBeStyledWithFontFamily.restore();
+            beaconPreloadFonts.isElementAboveFold.restore();
+        });
+
+        it('should return false for elements that cannot be styled even if above fold', () => {
+            const element = document.createElement('img');
+            element.tagName = 'IMG';
+            document.body.appendChild(element);
+            
+            // Mock the methods - can't be styled but is above fold
+            sinon.stub(beaconPreloadFonts, 'canElementBeStyledWithFontFamily').returns(false);
+            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').returns(true);
+            
+            const result = beaconPreloadFonts.canElementBeProcessed(element);
+            assert.strictEqual(result, false);
+            
+            // Clean up
+            document.body.removeChild(element);
+            beaconPreloadFonts.canElementBeStyledWithFontFamily.restore();
+            beaconPreloadFonts.isElementAboveFold.restore();
+        });
+
+        it('should return false for elements that can be styled but are below fold', () => {
+            const element = document.createElement('div');
+            element.tagName = 'DIV';
+            document.body.appendChild(element);
+            
+            // Mock the methods - can be styled but is below fold
+            sinon.stub(beaconPreloadFonts, 'canElementBeStyledWithFontFamily').returns(true);
+            sinon.stub(beaconPreloadFonts, 'isElementAboveFold').returns(false);
+            
+            const result = beaconPreloadFonts.canElementBeProcessed(element);
+            assert.strictEqual(result, false);
+            
+            // Clean up
+            document.body.removeChild(element);
+            beaconPreloadFonts.canElementBeStyledWithFontFamily.restore();
+            beaconPreloadFonts.isElementAboveFold.restore();
+        });
+    });
+
     describe('run', () => {
         it('should log no fonts found if no fonts are above the fold', async () => {
             // Mock methods
