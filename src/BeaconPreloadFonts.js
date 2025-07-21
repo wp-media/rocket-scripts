@@ -299,21 +299,21 @@ class BeaconPreloadFonts {
         const links = [
         ...document.querySelectorAll('link[rel="stylesheet"]')
         ].filter(link => {
-        try {
-            const linkUrl = new URL(link.href);
-            const currentUrl = new URL(window.location.href);
-            
-            // Only process external domains (different origin)
-            if (linkUrl.origin === currentUrl.origin) {
-            return false;
+            try {
+                const linkUrl = new URL(link.href);
+                const currentUrl = new URL(window.location.href);
+                
+                // Only process external domains (different origin)
+                if (linkUrl.origin === currentUrl.origin) {
+                    return false;
+                }
+                
+                // Check exclusions instead of allowlist
+                const exclusions = this.config.external_font_exclusions || [];
+                return !exclusions.some(exclusion => link.href.includes(exclusion));
+            } catch (e) {
+                return false;
             }
-            
-            // Check exclusions instead of allowlist
-            const exclusions = this.config.external_font_exclusions || [];
-            return !exclusions.some(exclusion => link.href.includes(exclusion));
-        } catch (e) {
-            return false;
-        }
         });
 
         if (links.length === 0) {
