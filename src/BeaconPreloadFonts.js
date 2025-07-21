@@ -625,6 +625,19 @@ class BeaconPreloadFonts {
 
         return elementTop <= foldPosition;
     }
+    /**
+     * Checks if an element can be processed for font analysis.
+     * 
+     * This method combines checks for whether an element can be styled with font-family
+     * and whether it is above the fold, providing a single method to determine if an
+     * element should be processed during font analysis.
+     * 
+     * @param {Element} element - The element to check.
+     * @returns {boolean} True if the element can be processed, false otherwise.
+     */
+    canElementBeProcessed(element) {
+      return this.canElementBeStyledWithFontFamily(element) && this.isElementAboveFold(element);
+    }
 
     /**
      * Initiates the process of analyzing and summarizing font usage on the page.
@@ -644,7 +657,7 @@ class BeaconPreloadFonts {
         const externalFontsResults = await this.processExternalFonts(this.externalParsedPairs);
 
         const elements = Array.from(document.getElementsByTagName('*'))
-            .filter(el => this.isElementAboveFold(el));
+            .filter((el) => this.canElementBeProcessed(el) && this.isElementAboveFold(el));
 
         elements.forEach(element => {
             const processElementFont = (style, pseudoElement = null) => {
