@@ -11,6 +11,30 @@ class BeaconPreloadFonts {
             .map(ext => ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
             .join('|');
         this.FONT_FILE_REGEX = new RegExp(`\\.(${extensions})(\\?.*)?$`, 'i');
+        
+        // Elements that cannot be styled with font-family
+        this.EXCLUDED_TAG_NAMES = new Set([
+            // Metadata/document head
+            'BASE', 'HEAD', 'LINK', 'META', 'STYLE', 'TITLE', 'SCRIPT',
+            
+            // Media
+            'IMG', 'VIDEO', 'AUDIO', 'EMBED', 'OBJECT', 'IFRAME',
+            
+            // Templating, wrappers, components, fallback
+            'NOSCRIPT', 'TEMPLATE', 'SLOT', 'CANVAS',
+            
+            // Resources
+            'SOURCE', 'TRACK', 'PARAM',
+            
+            // SVG references
+            'USE', 'SYMBOL',
+            
+            // Layout work
+            'BR', 'HR', 'WBR',
+            
+            // Obsolete/deprecated
+            'APPLET', 'ACRONYM', 'BGSOUND', 'BIG', 'BLINK', 'CENTER', 'FONT', 'FRAME', 'FRAMESET', 'MARQUEE', 'NOFRAMES', 'STRIKE', 'TT', 'U', 'XMP'
+        ]);
     }
 
     /**
@@ -55,6 +79,19 @@ class BeaconPreloadFonts {
         
         return false;
       }
+
+    /**
+     * Checks if an element can be styled with font-family.
+     * 
+     * This method determines if the provided element's tag name is not in the list
+     * of excluded tag names that cannot be styled with font-family CSS property.
+     * 
+     * @param {Element} element - The element to check.
+     * @returns {boolean} True if the element can be styled with font-family, false otherwise.
+     */
+    canElementBeStyledWithFontFamily(element) {
+        return !this.EXCLUDED_TAG_NAMES.has(element.tagName);
+    }
 
     /**
      * Checks if an element is visible in the viewport.
@@ -625,6 +662,7 @@ class BeaconPreloadFonts {
 
         return elementTop <= foldPosition;
     }
+
     /**
      * Checks if an element can be processed for font analysis.
      * 
@@ -636,7 +674,7 @@ class BeaconPreloadFonts {
      * @returns {boolean} True if the element can be processed, false otherwise.
      */
     canElementBeProcessed(element) {
-      return this.canElementBeStyledWithFontFamily(element) && this.isElementAboveFold(element);
+        return this.canElementBeStyledWithFontFamily(element) && this.isElementAboveFold(element);
     }
 
     /**
@@ -657,7 +695,7 @@ class BeaconPreloadFonts {
         const externalFontsResults = await this.processExternalFonts(this.externalParsedPairs);
 
         const elements = Array.from(document.getElementsByTagName('*'))
-            .filter((el) => this.canElementBeProcessed(el) && this.isElementAboveFold(el));
+            .filter(el => this.canElementBeProcessed(el));
 
         elements.forEach(element => {
             const processElementFont = (style, pseudoElement = null) => {
@@ -894,7 +932,7 @@ class BeaconPreloadFonts {
     async processExternalFonts(fontPairs) {
         const matches = new Map();
         const elements = Array.from(document.getElementsByTagName('*'))
-            .filter(el => this.isElementAboveFold(el));
+            .filter(el => this.canElementBeProcessed(el));
 
         const fontMap = new Map();
         Object.entries(fontPairs).forEach(([url, variations]) => {
