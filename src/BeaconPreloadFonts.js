@@ -258,20 +258,26 @@ class BeaconPreloadFonts {
         }
 
         // --- Main logic for fetching Google Fonts ---
-        const externalFontsProviders = [
-            'fonts.googleapis.com',
-            'fonts.gstatic.com',
-            'use.typekit.net',
-            'fonts.adobe.com',
-            'cdn.fonts.net',
-            // Add more known external font domains as needed
-        ];
-
+        // Process ALL external CSS links, filter by exclusions instead of allowlist
         const links = [
-            ...document.querySelectorAll('link[rel="stylesheet"]'),
-        ].filter((link) =>
-            externalFontsProviders.some((domain) => link.href.includes(domain))
-        );
+        ...document.querySelectorAll('link[rel="stylesheet"]')
+        ].filter(link => {
+        try {
+            const linkUrl = new URL(link.href);
+            const currentUrl = new URL(window.location.href);
+            
+            // Only process external domains (different origin)
+            if (linkUrl.origin === currentUrl.origin) {
+            return false;
+            }
+            
+            // Check exclusions instead of allowlist
+            const exclusions = this.config.external_font_exclusions || [];
+            return !exclusions.some(exclusion => link.href.includes(exclusion));
+        } catch (e) {
+            return false;
+        }
+        });
 
         if (links.length === 0) {
             this.logger.logMessage('No external CSS links found to process.');

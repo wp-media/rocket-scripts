@@ -34,7 +34,8 @@ describe('BeaconPreloadFonts', () => {
         const config = {
             system_fonts: ['Arial', 'Helvetica'],
             font_data: {},
-            preload_fonts_exclusions: []
+            preload_fonts_exclusions: [],
+            external_font_exclusions: []
         };
 
         // Initialize the class with mock config and logger
@@ -1123,9 +1124,44 @@ describe('BeaconPreloadFonts', () => {
         let originalQuerySelectorAll;
         let originalFetch;
         let originalCSSStyleSheet;
+        let originalLocation;
+        let originalURL;
         beforeEach(() => {
             // Mock CSSRule.FONT_FACE_RULE
             global.CSSRule = { FONT_FACE_RULE: 5 };
+            
+            // Mock window.location.href to have a different origin than the Google Fonts link
+            originalLocation = global.window?.location;
+            global.window = global.window || {};
+            global.window.location = {
+                href: 'https://example.com/test-page'
+            };
+            
+            // Mock the URL constructor to handle the origin comparison properly
+            originalURL = global.URL;
+            global.URL = function(url, base) {
+                if (url === 'https://example.com/test-page') {
+                    return {
+                        href: 'https://example.com/test-page',
+                        origin: 'https://example.com'
+                    };
+                }
+                if (url === 'https://fonts.googleapis.com/css?family=Roboto') {
+                    return {
+                        href: 'https://fonts.googleapis.com/css?family=Roboto',
+                        origin: 'https://fonts.googleapis.com'
+                    };
+                }
+                if (url === 'https://example.com/same-origin.css') {
+                    return {
+                        href: 'https://example.com/same-origin.css',
+                        origin: 'https://example.com'
+                    };
+                }
+                // Fallback for any other URL
+                return originalURL ? new originalURL(url, base) : { href: url, origin: url.split('/').slice(0, 3).join('/') };
+            };
+            
             // Mock document.querySelectorAll to return fake link elements
             originalQuerySelectorAll = global.document.querySelectorAll;
             global.document.querySelectorAll = sinon.stub().returns([
@@ -1165,6 +1201,12 @@ describe('BeaconPreloadFonts', () => {
             global.document.querySelectorAll = originalQuerySelectorAll;
             global.fetch = originalFetch;
             global.CSSStyleSheet = originalCSSStyleSheet;
+            global.URL = originalURL;
+            if (originalLocation) {
+                global.window.location = originalLocation;
+            } else {
+                delete global.window.location;
+            }
         });
 
         it('should fetch, parse, and return external font CSS as styleSheets and fontPairs', async () => {
@@ -1186,6 +1228,42 @@ describe('BeaconPreloadFonts', () => {
             const result = await beaconPreloadFonts.externalStylesheetsDoc();
             assert.deepStrictEqual(result.styleSheets, []);
             assert.deepStrictEqual(result.fontPairs, {});
+        });
+        
+        it('should exclude links based on external_font_exclusions config', async () => {
+            // Update the config to exclude fonts.googleapis.com
+            beaconPreloadFonts.config.external_font_exclusions = ['fonts.googleapis.com'];
+            
+            const result = await beaconPreloadFonts.externalStylesheetsDoc();
+            
+            // Should return empty arrays since the Google Fonts link should be excluded
+            assert.strictEqual(result.styleSheets.length, 0);
+            assert.deepStrictEqual(result.fontPairs, {});
+        });
+        
+        it('should process links from different origins only', async () => {
+            // Set up links with same and different origins
+            global.document.querySelectorAll = sinon.stub().returns([
+                { href: 'https://example.com/same-origin.css', rel: 'stylesheet' }, // Same origin as window.location
+                { href: 'https://fonts.googleapis.com/css?family=Roboto', rel: 'stylesheet' }, // Different origin
+            ]);
+            
+            // Mock fetch to handle multiple calls
+            global.fetch = sinon.stub();
+            global.fetch.onFirstCall().resolves({
+                ok: true,
+                text: () => Promise.resolve('@font-face { font-family: "Roboto"; src: url("https://fonts.gstatic.com/s/roboto.woff2"); font-weight: 400; font-style: normal; }')
+            });
+            
+            const result = await beaconPreloadFonts.externalStylesheetsDoc();
+            
+            // Should only process the external origin link, not the same-origin one
+            assert.strictEqual(result.styleSheets.length, 1);
+            assert.ok(result.fontPairs['https://fonts.gstatic.com/s/roboto.woff2']);
+            
+            // Verify fetch was called only once (for the external link)
+            assert.strictEqual(global.fetch.callCount, 1);
+            assert.ok(global.fetch.calledWith('https://fonts.googleapis.com/css?family=Roboto', { mode: 'cors' }));
         });
     });
 });
