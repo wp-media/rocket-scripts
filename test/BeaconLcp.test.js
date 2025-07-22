@@ -164,9 +164,12 @@ describe('BeaconManager', function() {
         it('should filter out elements with opacity: 0', function() {
             // Setup: first element has opacity 0, second is visible
             global.window.getComputedStyle
-                .onCall(0).returns({ display: 'block', visibility: 'visible', opacity: '0' })
-                .onCall(1).returns({ display: 'block', visibility: 'visible', opacity: '1' })
-                .onCall(2).returns({ display: 'block', visibility: 'visible', opacity: '1' });
+                .onCall(0).returns({ display: 'block', visibility: 'visible', opacity: '0', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(1).returns({ display: 'block', visibility: 'visible', opacity: '0', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(2).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(3).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(4).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(5).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' });
 
             beacon.config = { elements: 'img' };
             
@@ -184,15 +187,21 @@ describe('BeaconManager', function() {
         it('should filter out elements with visibility: hidden', function() {
             // Setup: first element has visibility hidden, others are visible
             global.window.getComputedStyle
-                .onCall(0).returns({ display: 'block', visibility: 'hidden', opacity: '1' })
-                .onCall(1).returns({ display: 'block', visibility: 'visible', opacity: '1' })
-                .onCall(2).returns({ display: 'block', visibility: 'visible', opacity: '1' });
+                .onCall(0).returns({ display: 'block', visibility: 'hidden', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(1).returns({ display: 'block', visibility: 'hidden', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(2).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(3).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(4).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(5).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' });
 
             beacon.config = { elements: 'img' };
+            
+            // Mock _getElementInfo to return valid info for visible elements
             sinon.stub(beacon, '_getElementInfo').returns({ src: 'test.jpg', type: 'img' });
 
             const candidates = beacon._generateLcpCandidates(10);
 
+            // Should only return 2 candidates (excluding the one with visibility: hidden)
             assert.strictEqual(candidates.length, 2);
             assert.strictEqual(candidates[0].element, mockElements[1]);
             assert.strictEqual(candidates[1].element, mockElements[2]);
@@ -201,15 +210,21 @@ describe('BeaconManager', function() {
         it('should filter out elements with display: none', function() {
             // Setup: first element has display none, others are visible
             global.window.getComputedStyle
-                .onCall(0).returns({ display: 'none', visibility: 'visible', opacity: '1' })
-                .onCall(1).returns({ display: 'block', visibility: 'visible', opacity: '1' })
-                .onCall(2).returns({ display: 'block', visibility: 'visible', opacity: '1' });
+                .onCall(0).returns({ display: 'none', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(1).returns({ display: 'none', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(2).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(3).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(4).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(5).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' });
 
             beacon.config = { elements: 'img' };
+            
+            // Mock _getElementInfo to return valid info for visible elements
             sinon.stub(beacon, '_getElementInfo').returns({ src: 'test.jpg', type: 'img' });
 
             const candidates = beacon._generateLcpCandidates(10);
 
+            // Should only return 2 candidates (excluding the one with display: none)
             assert.strictEqual(candidates.length, 2);
             assert.strictEqual(candidates[0].element, mockElements[1]);
             assert.strictEqual(candidates[1].element, mockElements[2]);
@@ -250,9 +265,12 @@ describe('BeaconManager', function() {
         it('should handle edge case with very low opacity but not zero', function() {
             // Test with very low opacity (0.01) - should be included as it's not exactly 0
             global.window.getComputedStyle
-                .onCall(0).returns({ display: 'block', visibility: 'visible', opacity: '0.01' })
-                .onCall(1).returns({ display: 'block', visibility: 'visible', opacity: '1' })
-                .onCall(2).returns({ display: 'block', visibility: 'visible', opacity: '0' });
+                .onCall(0).returns({ display: 'block', visibility: 'visible', opacity: '0.01', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(1).returns({ display: 'block', visibility: 'visible', opacity: '0.01', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(2).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(3).returns({ display: 'block', visibility: 'visible', opacity: '1', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(4).returns({ display: 'block', visibility: 'visible', opacity: '0', color: 'rgb(0,0,0)', filter: '' })
+                .onCall(5).returns({ display: 'block', visibility: 'visible', opacity: '0', color: 'rgb(0,0,0)', filter: '' });
 
             beacon.config = { elements: 'img' };
             sinon.stub(beacon, '_getElementInfo').returns({ src: 'test.jpg', type: 'img' });
