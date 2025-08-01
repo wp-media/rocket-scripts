@@ -248,8 +248,10 @@ class BeaconPreloadFonts {
                 }
                 
                 // Check exclusions instead of allowlist
-                const exclusions = this.config.external_font_exclusions || [];
-                return !exclusions.some(exclusion => link.href.includes(exclusion));
+                const preloadFontsExclusions = this.config.preload_fonts_exclusions || [];
+                const externalFontExclusions = this.config.external_font_exclusions || [];
+                const allExclusions = [...preloadFontsExclusions, ...externalFontExclusions];
+                return !allExclusions.some((exclusion) => link.href.includes(exclusion));
             } catch (e) {
                 return false;
             }
