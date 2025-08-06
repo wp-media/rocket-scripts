@@ -41,6 +41,22 @@ class BeaconPreloadFonts {
     }
 
     /**
+     * Checks if a URL should be excluded from external font processing based on domain exclusions.
+     * 
+     * @param {string} url - The URL to check.
+     * @returns {boolean} True if the URL should be excluded, false otherwise.
+     */
+    isUrlExcludedFromExternalProcessing(url) {
+        if (!url) return false;
+        
+        // Check both exclusion arrays for domain filtering
+        const externalFontExclusions = this.config.external_font_exclusions || [];
+        const preloadFontsExclusions = this.config.preload_fonts_exclusions || [];
+        const allExclusions = [...externalFontExclusions, ...preloadFontsExclusions];
+        return allExclusions.some((exclusion) => url.includes(exclusion));
+    }
+
+    /**
      * Checks if a font family or URL should be excluded from preloading.
      * 
      * This method determines if the provided font family or any of its URLs
@@ -247,11 +263,8 @@ class BeaconPreloadFonts {
                     return false;
                 }
                 
-                // Check exclusions instead of allowlist
-                const preloadFontsExclusions = this.config.preload_fonts_exclusions || [];
-                const externalFontExclusions = this.config.external_font_exclusions || [];
-                const allExclusions = [...preloadFontsExclusions, ...externalFontExclusions];
-                return !allExclusions.some((exclusion) => link.href.includes(exclusion));
+                // Use the helper method for consistent exclusion logic
+                return !this.isUrlExcludedFromExternalProcessing(link.href);
             } catch (e) {
                 return false;
             }
@@ -429,6 +442,11 @@ class BeaconPreloadFonts {
         try {
           const importUrl = rule.href;
           
+          // Check if URL should be excluded based on external font exclusions
+          if (this.isUrlExcludedFromExternalProcessing(importUrl)) {
+            return;
+          }
+          
           // Prevent infinite loops by checking if URL already processed
           if (processedUrls.has(importUrl)) {
             return;
@@ -476,6 +494,11 @@ class BeaconPreloadFonts {
         } catch (e) {
           // If we can't access cssRules due to CORS, try to process the stylesheet content directly
           if (e.name === 'SecurityError' && sheet.href) {
+            // Check if URL should be excluded based on external font exclusions
+            if (this.isUrlExcludedFromExternalProcessing(sheet.href)) {
+              return;
+            }
+            
             // Prevent infinite loops for CORS fallback too
             if (processedUrls.has(sheet.href)) {
               return;
@@ -503,6 +526,11 @@ class BeaconPreloadFonts {
                 let importMatch;
                 while ((importMatch = importRegex.exec(cssText)) !== null) {
                   const importUrl = new URL(importMatch[1], sheet.href).href;
+                  
+                  // Check if URL should be excluded based on external font exclusions
+                  if (this.isUrlExcludedFromExternalProcessing(importUrl)) {
+                    continue;
+                  }
                   
                   // Prevent infinite loops
                   if (processedUrls.has(importUrl)) {
@@ -554,6 +582,11 @@ class BeaconPreloadFonts {
         
         while ((importMatch = importRegex.exec(cssText)) !== null) {
           const importUrl = importMatch[1];
+          
+          // Check if URL should be excluded based on external font exclusions
+          if (this.isUrlExcludedFromExternalProcessing(importUrl)) {
+            continue;
+          }
           
           // Prevent infinite loops
           if (processedUrls.has(importUrl)) {
