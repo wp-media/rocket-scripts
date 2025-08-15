@@ -57,7 +57,8 @@ class BeaconLcp {
                 return (
                     item.rect.width > 0 &&
                     item.rect.height > 0 &&
-                    BeaconUtils.isIntersecting(item.rect)
+                    BeaconUtils.isIntersecting(item.rect) &&
+                    BeaconUtils.isElementVisible(item.element)
                 );
             })
             .map(item => ({

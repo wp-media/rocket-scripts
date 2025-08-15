@@ -1,4 +1,7 @@
 'use strict';
+
+import BeaconUtils from "./Utils.js";
+
 class BeaconPreloadFonts {
     constructor(config, logger) {
         this.config = config;
@@ -11,6 +14,46 @@ class BeaconPreloadFonts {
             .map(ext => ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
             .join('|');
         this.FONT_FILE_REGEX = new RegExp(`\\.(${extensions})(\\?.*)?$`, 'i');
+        
+        // Elements that cannot be styled with font-family
+        this.EXCLUDED_TAG_NAMES = new Set([
+            // Metadata/document head
+            'BASE', 'HEAD', 'LINK', 'META', 'STYLE', 'TITLE', 'SCRIPT',
+            
+            // Media
+            'IMG', 'VIDEO', 'AUDIO', 'EMBED', 'OBJECT', 'IFRAME',
+            
+            // Templating, wrappers, components, fallback
+            'NOSCRIPT', 'TEMPLATE', 'SLOT', 'CANVAS',
+            
+            // Resources
+            'SOURCE', 'TRACK', 'PARAM',
+            
+            // SVG references
+            'USE', 'SYMBOL',
+            
+            // Layout work
+            'BR', 'HR', 'WBR',
+            
+            // Obsolete/deprecated
+            'APPLET', 'ACRONYM', 'BGSOUND', 'BIG', 'BLINK', 'CENTER', 'FONT', 'FRAME', 'FRAMESET', 'MARQUEE', 'NOFRAMES', 'STRIKE', 'TT', 'U', 'XMP'
+        ]);
+    }
+
+    /**
+     * Checks if a URL should be excluded from external font processing based on domain exclusions.
+     * 
+     * @param {string} url - The URL to check.
+     * @returns {boolean} True if the URL should be excluded, false otherwise.
+     */
+    isUrlExcludedFromExternalProcessing(url) {
+        if (!url) return false;
+        
+        // Check both exclusion arrays for domain filtering
+        const externalFontExclusions = this.config.external_font_exclusions || [];
+        const preloadFontsExclusions = this.config.preload_fonts_exclusions || [];
+        const allExclusions = [...externalFontExclusions, ...preloadFontsExclusions];
+        return allExclusions.some((exclusion) => url.includes(exclusion));
     }
 
     /**
@@ -57,25 +100,29 @@ class BeaconPreloadFonts {
       }
 
     /**
+     * Checks if an element can be styled with font-family.
+     * 
+     * This method determines if the provided element's tag name is not in the list
+     * of excluded tag names that cannot be styled with font-family CSS property.
+     * 
+     * @param {Element} element - The element to check.
+     * @returns {boolean} True if the element can be styled with font-family, false otherwise.
+     */
+    canElementBeStyledWithFontFamily(element) {
+        return !this.EXCLUDED_TAG_NAMES.has(element.tagName);
+    }
+
+    /**
      * Checks if an element is visible in the viewport.
      * 
-     * This method checks if the provided element is visible in the viewport by
-     * considering its display, visibility, opacity, width, and height properties.
-     * It returns true if the element is visible, and false otherwise.
+     * This method delegates to BeaconUtils.isElementVisible() for consistent
+     * visibility checking across all beacons.
      * 
      * @param {Element} element - The element to check for visibility.
      * @returns {boolean} True if the element is visible, false otherwise.
      */
     isElementVisible(element) {
-        const style = window.getComputedStyle(element);
-        const rect = element.getBoundingClientRect();
-        return !(
-            style.display === 'none' ||
-            style.visibility === 'hidden' ||
-            style.opacity === '0' ||
-            rect.width === 0 ||
-            rect.height === 0
-        );
+        return BeaconUtils.isElementVisible(element);
     }
 
     /**
@@ -203,20 +250,25 @@ class BeaconPreloadFonts {
         }
 
         // --- Main logic for fetching Google Fonts ---
-        const externalFontsProviders = [
-            'fonts.googleapis.com',
-            'fonts.gstatic.com',
-            'use.typekit.net',
-            'fonts.adobe.com',
-            'cdn.fonts.net',
-            // Add more known external font domains as needed
-        ];
-
+        // Process ALL external CSS links, filter by exclusions instead of allowlist
         const links = [
-            ...document.querySelectorAll('link[rel="stylesheet"]'),
-        ].filter((link) =>
-            externalFontsProviders.some((domain) => link.href.includes(domain))
-        );
+        ...document.querySelectorAll('link[rel="stylesheet"]')
+        ].filter(link => {
+            try {
+                const linkUrl = new URL(link.href);
+                const currentUrl = new URL(window.location.href);
+                
+                // Only process external domains (different origin)
+                if (linkUrl.origin === currentUrl.origin) {
+                    return false;
+                }
+                
+                // Use the helper method for consistent exclusion logic
+                return !this.isUrlExcludedFromExternalProcessing(link.href);
+            } catch (e) {
+                return false;
+            }
+        });
 
         if (links.length === 0) {
             this.logger.logMessage('No external CSS links found to process.');
@@ -345,60 +397,227 @@ class BeaconPreloadFonts {
      * font-face rules, including their source URLs, font families, weights,
      * and styles. It returns an object containing the collected font data.
      * 
-     * @returns {Object} An object mapping font families to their respective
+     * @returns {Promise<Object>} An object mapping font families to their respective
      *                  URLs and variations.
      */
-    getFontFaceRules() {
-        const stylesheetFonts = {};
+    async getFontFaceRules() {
+      const stylesheetFonts = {};
+      const processedUrls = new Set(); // Track processed URLs to prevent infinite loops
+      
+      const processFontFaceRule = (rule, baseHref = null) => {
+        const src = rule.style.getPropertyValue("src");
+        const fontFamily = rule.style.getPropertyValue("font-family").replace(/['"]/g, "").trim();
+        const weight = rule.style.getPropertyValue("font-weight") || "400";
+        const style = rule.style.getPropertyValue("font-style") || "normal";
+        
+        if (!stylesheetFonts[fontFamily]) {
+          stylesheetFonts[fontFamily] = { urls: [], variations: /* @__PURE__ */ new Set() };
+        }
+        
+        // Use the same URL extraction logic as _extractFirstUrlFromSrc to prevent duplicates
+        const extractFirstUrlFromSrc = (srcValue) => {
+          if (!srcValue) return null;
+          const urlMatch = srcValue.match(/url\s*\(\s*(['"]?)(.+?)\1\s*\)/);
+          return urlMatch ? urlMatch[2] : null;
+        };
+        
+        // Extract only the first URL to match the behavior of external fonts processing
+        const firstUrl = extractFirstUrlFromSrc(src);
+        if (firstUrl) {
+          let rawUrl = firstUrl;
+          if (baseHref) {
+            rawUrl = new URL(rawUrl, baseHref).href;
+          }
+          const normalized = this.cleanUrl(rawUrl);
+          if (!stylesheetFonts[fontFamily].urls.includes(normalized)) {
+            stylesheetFonts[fontFamily].urls.push(normalized);
+            stylesheetFonts[fontFamily].variations.add(
+              JSON.stringify({ weight, style })
+            );
+          }
+        }
+      };
 
-        Array.from(Array.from(document.styleSheets))
-            .filter(sheet => !sheet.href || new URL(sheet.href).origin === location.origin)
-            .forEach((sheet) => {
-                try {
-                    Array.from(sheet.cssRules || []).forEach((rule) => {
-                        if (rule instanceof CSSFontFaceRule) {
-                            const src = rule.style.getPropertyValue('src');
-                            const fontFamily = rule.style.getPropertyValue('font-family')
-                                .replace(/['"]+/g, '')
-                                .trim();
-                            const weight = rule.style.getPropertyValue('font-weight') || '400';
-                            const style = rule.style.getPropertyValue('font-style') || 'normal';
+      const processImportRule = async (rule) => {
+        try {
+          const importUrl = rule.href;
+          
+          // Check if URL should be excluded based on external font exclusions
+          if (this.isUrlExcludedFromExternalProcessing(importUrl)) {
+            return;
+          }
+          
+          // Prevent infinite loops by checking if URL already processed
+          if (processedUrls.has(importUrl)) {
+            return;
+          }
+          processedUrls.add(importUrl);
+          
+          const response = await fetch(importUrl, { mode: 'cors' });
+          if (!response.ok) {
+            this.logger.logMessage(`Failed to fetch @import CSS: ${response.status}`);
+            return;
+          }
+          
+          const cssText = await response.text();
+          const tempSheet = new CSSStyleSheet();
+          tempSheet.replaceSync(cssText);
+          
+          // Process the imported stylesheet
+          Array.from(tempSheet.cssRules || []).forEach((importedRule) => {
+            if (importedRule instanceof CSSFontFaceRule) {
+              processFontFaceRule(importedRule, importUrl);
+            }
+          });
+        } catch (error) {
+          this.logger.logMessage(`Error processing @import rule: ${error.message}`);
+        }
+      };
 
-                            if (!stylesheetFonts[fontFamily]) {
-                                stylesheetFonts[fontFamily] = {
-                                    urls: [],
-                                    variations: new Set()
-                                };
-                            }
-
-                            const urls = src.match(/url\(['"]?([^'"]+)['"]?\)/g) || [];
-                            urls.forEach((urlMatch) => {
-                                let rawUrl = urlMatch.match(/url\(['"]?([^'"]+)['"]?\)/)[1];
-                                // Reconstruct url to absolute if stylesheet is not internal.
-                                if (sheet.href) {
-                                    rawUrl = new URL(rawUrl, sheet.href).href;
-                                }
-                                const normalizedUrl = this.cleanUrl(rawUrl);
-                                if (!stylesheetFonts[fontFamily].urls.includes(normalizedUrl)) {
-                                    stylesheetFonts[fontFamily].urls.push(normalizedUrl);
-                                    stylesheetFonts[fontFamily].variations.add(JSON.stringify({
-                                        weight,
-                                        style
-                                    }));
-                                }
-                            });
+      const processSheet = async (sheet) => {
+        try {
+          const rules = Array.from(sheet.cssRules || []);
+          
+          for (const rule of rules) {
+            if (rule instanceof CSSFontFaceRule) {
+              processFontFaceRule(rule, sheet.href);
+            } else if (rule instanceof CSSImportRule) {
+              if (rule.styleSheet) {
+                await processSheet(rule.styleSheet);
+              } else {
+                await processImportRule(rule);
+              }
+            } else if (rule.styleSheet) {
+              await processSheet(rule.styleSheet);
+            }
+          }
+        } catch (e) {
+          // If we can't access cssRules due to CORS, try to process the stylesheet content directly
+          if (e.name === 'SecurityError' && sheet.href) {
+            // Check if URL should be excluded based on external font exclusions
+            if (this.isUrlExcludedFromExternalProcessing(sheet.href)) {
+              return;
+            }
+            
+            // Prevent infinite loops for CORS fallback too
+            if (processedUrls.has(sheet.href)) {
+              return;
+            }
+            processedUrls.add(sheet.href);
+            
+            try {
+              const response = await fetch(sheet.href, { mode: 'cors' });
+              if (response.ok) {
+                const cssText = await response.text();
+                
+                // Create a temporary stylesheet to parse the CSS
+                const tempSheet = new CSSStyleSheet();
+                tempSheet.replaceSync(cssText);
+                
+                // Process any @font-face rules in the external CSS
+                Array.from(tempSheet.cssRules || []).forEach((rule) => {
+                  if (rule instanceof CSSFontFaceRule) {
+                    processFontFaceRule(rule, sheet.href);
+                  }
+                });
+                
+                // Look for @import statements and process them
+                const importRegex = /@import\s+url\(['"]?([^'")]+)['"]?\);?/g;
+                let importMatch;
+                while ((importMatch = importRegex.exec(cssText)) !== null) {
+                  const importUrl = new URL(importMatch[1], sheet.href).href;
+                  
+                  // Check if URL should be excluded based on external font exclusions
+                  if (this.isUrlExcludedFromExternalProcessing(importUrl)) {
+                    continue;
+                  }
+                  
+                  // Prevent infinite loops
+                  if (processedUrls.has(importUrl)) {
+                    continue;
+                  }
+                  processedUrls.add(importUrl);
+                  
+                  try {
+                    const importResponse = await fetch(importUrl, { mode: 'cors' });
+                    if (importResponse.ok) {
+                      const importCssText = await importResponse.text();
+                      const tempImportSheet = new CSSStyleSheet();
+                      tempImportSheet.replaceSync(importCssText);
+                      
+                      Array.from(tempImportSheet.cssRules || []).forEach((importedRule) => {
+                        if (importedRule instanceof CSSFontFaceRule) {
+                          processFontFaceRule(importedRule, importUrl);
                         }
-                    });
-                } catch (e) {
-                    this.logger.logMessage(e);
+                      });
+                    }
+                  } catch (importError) {
+                    this.logger.logMessage(`Error fetching @import ${importUrl}: ${importError.message}`);
+                  }
                 }
-            });
+              }
+            } catch (fetchError) {
+              this.logger.logMessage(`Error fetching stylesheet ${sheet.href}: ${fetchError.message}`);
+            }
+          } else {
+            this.logger.logMessage(`Error processing stylesheet: ${e.message}`);
+          }
+        }
+      };
 
-        Object.values(stylesheetFonts).forEach(fontData => {
-            fontData.variations = Array.from(fontData.variations).map(v => JSON.parse(v));
-        });
+      // Process all stylesheets
+      const sheets = Array.from(document.styleSheets);
+      for (const sheet of sheets) {
+        await processSheet(sheet);
+      }
 
-        return stylesheetFonts;
+      // Process inline <style> elements that may contain @import statements
+      const inlineStyleElements = document.querySelectorAll('style');
+      for (const styleElement of inlineStyleElements) {
+        const cssText = styleElement.textContent || styleElement.innerHTML || '';
+        
+        // Look for @import statements in the inline CSS
+        const importRegex = /@import\s+url\s*\(\s*['"]?([^'")]+)['"]?\s*\)\s*;?/g;
+        let importMatch;
+        
+        while ((importMatch = importRegex.exec(cssText)) !== null) {
+          const importUrl = importMatch[1];
+          
+          // Check if URL should be excluded based on external font exclusions
+          if (this.isUrlExcludedFromExternalProcessing(importUrl)) {
+            continue;
+          }
+          
+          // Prevent infinite loops
+          if (processedUrls.has(importUrl)) {
+            continue;
+          }
+          processedUrls.add(importUrl);
+          
+          try {
+            const response = await fetch(importUrl, { mode: 'cors' });
+            if (response.ok) {
+              const importCssText = await response.text();
+              const tempSheet = new CSSStyleSheet();
+              tempSheet.replaceSync(importCssText);
+              
+              Array.from(tempSheet.cssRules || []).forEach((importedRule) => {
+                if (importedRule instanceof CSSFontFaceRule) {
+                  processFontFaceRule(importedRule, importUrl);
+                }
+              });
+            }
+          } catch (importError) {
+            this.logger.logMessage(`Error fetching inline @import ${importUrl}: ${importError.message}`);
+          }
+        }
+      }
+
+      Object.values(stylesheetFonts).forEach((fontData) => {
+        fontData.variations = Array.from(fontData.variations).map((v) => JSON.parse(v));
+      });
+      
+      return stylesheetFonts;
     }
 
     /**
@@ -419,6 +638,20 @@ class BeaconPreloadFonts {
     }
 
     /**
+     * Checks if an element can be processed for font analysis.
+     * 
+     * This method combines checks for whether an element can be styled with font-family
+     * and whether it is above the fold, providing a single method to determine if an
+     * element should be processed during font analysis.
+     * 
+     * @param {Element} element - The element to check.
+     * @returns {boolean} True if the element can be processed, false otherwise.
+     */
+    canElementBeProcessed(element) {
+        return this.canElementBeStyledWithFontFamily(element) && this.isElementAboveFold(element);
+    }
+
+    /**
      * Initiates the process of analyzing and summarizing font usage on the page.
      * This method fetches network-loaded fonts, stylesheet fonts, and external font pairs.
      * It then processes each element on the page to determine which fonts are used above the fold.
@@ -431,12 +664,12 @@ class BeaconPreloadFonts {
         await document.fonts.ready;
         await this._initializeExternalFontSheets();
         const networkLoadedFonts = this.getNetworkLoadedFonts();
-        const stylesheetFonts = this.getFontFaceRules();
+        const stylesheetFonts = await this.getFontFaceRules();
         const hostedFonts = new Map();
         const externalFontsResults = await this.processExternalFonts(this.externalParsedPairs);
 
         const elements = Array.from(document.getElementsByTagName('*'))
-            .filter(el => this.isElementAboveFold(el));
+            .filter(el => this.canElementBeProcessed(el));
 
         elements.forEach(element => {
             const processElementFont = (style, pseudoElement = null) => {
@@ -508,6 +741,8 @@ class BeaconPreloadFonts {
 
                     data.variations.forEach(variation => {
                         let matchingUrl = null;
+                        
+                        // First try to find in network loaded fonts
                         for (const styleUrl of data.urls) {
                             const normalizedStyleUrl = this.cleanUrl(styleUrl);
                             if (networkLoadedFonts.has(normalizedStyleUrl)) {
@@ -515,10 +750,10 @@ class BeaconPreloadFonts {
                                 break;
                             }
                         }
-
-                        // Track URLs per location
+                        
+                        // Track URLs per location ONLY if we found a matching network loaded font
                         if (matchingUrl) {
-                            // Only create new object if a valid matching url exist in network loaded fonts.
+                            // Only create new object if a valid matching url exists in network loaded fonts.
                             if (!allFonts[fontFamily]) {
                                 allFonts[fontFamily] = {
                                     type: 'hosted',
@@ -556,10 +791,7 @@ class BeaconPreloadFonts {
                         }
                     });
 
-                    if (!Object.prototype.hasOwnProperty.call(allFonts, fontFamily)) {
-                        return;
-                    }
-
+                    // Only add to hostedFontsResults if we actually found matching fonts
                     if (allFonts[fontFamily]) {
                         // Copy to hostedFontsResults
                         hostedFontsResults[fontFamily] = {
@@ -575,8 +807,12 @@ class BeaconPreloadFonts {
         // Process External Fonts
         if (Object.keys(externalFontsResults).length > 0) {
             Object.entries(externalFontsResults).forEach(([url, data]) => {
+                // Split elements into above and below fold for accurate counting
+                const aboveElements = Array.from(data.elements).filter(el => this.isElementAboveFold(el));
+                const belowElements = Array.from(data.elements).filter(el => !this.isElementAboveFold(el));
+                
                 // Only process if we're in full mode or the font appears above fold
-                if (data.elementCount.aboveFold > 0) {
+                if (data.elementCount.aboveFold > 0 || aboveElements.length > 0) {
                     data.variations.forEach(variation => {
                         // Initialize font family entry if it doesn't exist
                         if (!allFonts[variation.family]) {
@@ -596,10 +832,6 @@ class BeaconPreloadFonts {
                                 }
                             };
                         }
-
-                        // Split elements into above and below fold for accurate counting
-                        const aboveElements = Array.from(data.elements).filter(el => this.isElementAboveFold(el));
-                        const belowElements = Array.from(data.elements).filter(el => !this.isElementAboveFold(el));
 
                         // Add variation with its specific location and element counts
                         allFonts[variation.family].variations.push({
@@ -674,7 +906,7 @@ class BeaconPreloadFonts {
     async processExternalFonts(fontPairs) {
         const matches = new Map();
         const elements = Array.from(document.getElementsByTagName('*'))
-            .filter(el => this.isElementAboveFold(el));
+            .filter(el => this.canElementBeProcessed(el));
 
         const fontMap = new Map();
         Object.entries(fontPairs).forEach(([url, variations]) => {
