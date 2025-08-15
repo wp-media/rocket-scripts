@@ -138,6 +138,40 @@ describe('BeaconPreloadFonts', () => {
         sinon.restore(); // Restore sinon mocks
     });
 
+    describe('isUrlExcludedFromExternalProcessing', () => {
+        it('should return false when no exclusions are configured', () => {
+            const result = beaconPreloadFonts.isUrlExcludedFromExternalProcessing('https://fonts.googleapis.com/css');
+            assert.strictEqual(result, false);
+        });
+
+        it('should return true when URL matches external font exclusion', () => {
+            beaconPreloadFonts.config.external_font_exclusions = ['fonts.googleapis.com'];
+            const result = beaconPreloadFonts.isUrlExcludedFromExternalProcessing('https://fonts.googleapis.com/css');
+            assert.strictEqual(result, true);
+        });
+
+        it('should return true when URL matches preload fonts exclusion', () => {
+            beaconPreloadFonts.config.preload_fonts_exclusions = ['fonts.googleapis.com'];
+            beaconPreloadFonts.config.external_font_exclusions = []; // explicitly empty
+            const result = beaconPreloadFonts.isUrlExcludedFromExternalProcessing('https://fonts.googleapis.com/css');
+            assert.strictEqual(result, true);
+        });
+
+        it('should return false when URL does not match any exclusion', () => {
+            beaconPreloadFonts.config.external_font_exclusions = ['fonts.adobe.com'];
+            beaconPreloadFonts.config.preload_fonts_exclusions = ['Roboto'];
+            const result = beaconPreloadFonts.isUrlExcludedFromExternalProcessing('https://fonts.googleapis.com/css');
+            assert.strictEqual(result, false);
+        });
+
+        it('should return false for null or undefined URLs', () => {
+            beaconPreloadFonts.config.external_font_exclusions = ['fonts.googleapis.com'];
+            assert.strictEqual(beaconPreloadFonts.isUrlExcludedFromExternalProcessing(null), false);
+            assert.strictEqual(beaconPreloadFonts.isUrlExcludedFromExternalProcessing(undefined), false);
+            assert.strictEqual(beaconPreloadFonts.isUrlExcludedFromExternalProcessing(''), false);
+        });
+    });
+
     describe('isExcluded', () => {
         it('should return true when fontFamily exactly matches exclusion', () => {
             beaconPreloadFonts.config.preload_fonts_exclusions = ['Arial'];
@@ -1114,6 +1148,18 @@ describe('BeaconPreloadFonts', () => {
             const result = await beaconPreloadFonts.externalStylesheetsDoc();
             
             // Should return empty arrays since the Google Fonts link should be excluded
+            assert.strictEqual(result.styleSheets.length, 0);
+            assert.deepStrictEqual(result.fontPairs, {});
+        });
+
+        it('should exclude links based on preload_fonts_exclusions config (backward compatibility)', async () => {
+            // Set preload_fonts_exclusions to exclude domain
+            beaconPreloadFonts.config.preload_fonts_exclusions = ['fonts.googleapis.com'];
+            beaconPreloadFonts.config.external_font_exclusions = []; // explicitly empty
+            
+            const result = await beaconPreloadFonts.externalStylesheetsDoc();
+            
+            // Should exclude the link since preload_fonts_exclusions can also contain domains
             assert.strictEqual(result.styleSheets.length, 0);
             assert.deepStrictEqual(result.fontPairs, {});
         });
