@@ -94,7 +94,7 @@ class BeaconLcp {
             current_src: ""
         };
 
-        const css_bg_url_rgx = /url\(\s*?['"]?([^'"\s]+)['"]?\s*?\)/ig;
+        const css_bg_url_rgx = /url\(\s*(['"]?)(.*?)\1\s*\)/ig;
 
         if (nodeName === "img" && element.srcset) {
             element_info.type = "img-srcset";
@@ -106,6 +106,10 @@ class BeaconLcp {
             element_info.type = "img";
             element_info.src = element.src;
             element_info.current_src = element.currentSrc;
+            // Return null if src is empty or just whitespace
+            if (!element_info.src || !element_info.src.trim()) {
+                return null;
+            }
         } else if (nodeName === "video") {
             element_info.type = "img";
             const source = element.querySelector('source');
@@ -161,10 +165,10 @@ class BeaconLcp {
             }
 
             const matches = [...full_bg_prop.matchAll(css_bg_url_rgx)];
-            element_info.bg_set = matches.map(m => m[1] ? { src: m[1].trim() + (m[2] ? " " + m[2].trim() : "") } : {});
-            if (element_info.bg_set.every(item => item.src === "")) {
-                element_info.bg_set = matches.map(m => m[1] ? { src: m[1].trim() } : {});
-            }
+            // m[2] is the URL content (m[1] is the quote character)
+            element_info.bg_set = matches
+                .map(m => m[2] ? { src: m[2].trim() } : {})
+                .filter(item => item.src && item.src !== "");
 
             if (element_info.bg_set.length <= 0) {
                 return null;
@@ -186,7 +190,8 @@ class BeaconLcp {
             if (!item.elementInfo) {
                 return false;
             }
-            const hasSrc = item.elementInfo.src && (typeof item.elementInfo.src === 'string' ? item.elementInfo.src.trim() : true);
+            const hasSrc = item.elementInfo.src &&
+                (typeof item.elementInfo.src === 'string' ? item.elementInfo.src.trim() !== '' : Array.isArray(item.elementInfo.src));
             const hasSrcset = item.elementInfo.srcset && item.elementInfo.srcset.trim();
             return hasSrc || hasSrcset;
         });
