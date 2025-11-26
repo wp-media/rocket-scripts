@@ -83,6 +83,31 @@ describe('BeaconManager', function() {
 
             assert.strictEqual(beacon.performanceImages.length, 0);
         });
+
+        it('should skip elements with empty src strings', function() {
+            const elements = [
+                { element: { nodeName: 'img' }, elementInfo: { type: 'img', src: '' } }, // empty src
+                { element: { nodeName: 'img' }, elementInfo: { type: 'img', src: '   ' } }, // whitespace src
+                { element: { nodeName: 'img' }, elementInfo: { type: 'img', src: 'http://example.com/valid.jpg' } },
+            ];
+
+            beacon._initWithFirstElementWithInfo(elements);
+
+            assert.strictEqual(beacon.performanceImages.length, 1);
+            assert.strictEqual(beacon.performanceImages[0].src, 'http://example.com/valid.jpg');
+            assert.strictEqual(beacon.performanceImages[0].label, 'lcp');
+        });
+
+        it('should handle elements with srcset instead of src', function() {
+            const elements = [
+                { element: { nodeName: 'img' }, elementInfo: { type: 'img-srcset', src: '', srcset: 'image-320w.jpg 320w, image-640w.jpg 640w' } },
+            ];
+
+            beacon._initWithFirstElementWithInfo(elements);
+
+            assert.strictEqual(beacon.performanceImages.length, 1);
+            assert.strictEqual(beacon.performanceImages[0].srcset, 'image-320w.jpg 320w, image-640w.jpg 640w');
+        });
     });
 
     describe('#_getElementInfo()', function() {
@@ -94,6 +119,120 @@ describe('BeaconManager', function() {
             const elementInfo = beacon._getElementInfo(element);
 
             assert.strictEqual(elementInfo, null);
+        });
+
+        it('should return null for img elements with empty src', function() {
+            const element = {
+                nodeName: 'img',
+                src: '',
+                currentSrc: ''
+            };
+
+            const elementInfo = beacon._getElementInfo(element);
+
+            assert.strictEqual(elementInfo, null);
+        });
+
+        it('should return null for img elements with whitespace-only src', function() {
+            const element = {
+                nodeName: 'img',
+                src: '   ',
+                currentSrc: '   '
+            };
+
+            const elementInfo = beacon._getElementInfo(element);
+
+            assert.strictEqual(elementInfo, null);
+        });
+
+        it('should return null for svg image elements with empty href', function() {
+            const imageElement = {
+                getAttribute: sinon.stub().returns('')
+            };
+            const element = {
+                nodeName: 'svg',
+                querySelector: sinon.stub().returns(imageElement)
+            };
+
+            const elementInfo = beacon._getElementInfo(element);
+
+            assert.strictEqual(elementInfo, null);
+            assert.strictEqual(element.querySelector.calledWith('image'), true);
+            assert.strictEqual(imageElement.getAttribute.calledWith('href'), true);
+        });
+
+        it('should return null for svg image elements with whitespace-only href', function() {
+            const imageElement = {
+                getAttribute: sinon.stub().returns('  \n\t  ')
+            };
+            const element = {
+                nodeName: 'svg',
+                querySelector: sinon.stub().returns(imageElement)
+            };
+
+            const elementInfo = beacon._getElementInfo(element);
+
+            assert.strictEqual(elementInfo, null);
+        });
+
+        it('should return valid element info for svg image elements with non-empty href', function() {
+            const imageElement = {
+                getAttribute: sinon.stub().returns('https://example.com/image.svg')
+            };
+            const element = {
+                nodeName: 'svg',
+                querySelector: sinon.stub().returns(imageElement)
+            };
+
+            const elementInfo = beacon._getElementInfo(element);
+
+            assert.notStrictEqual(elementInfo, null);
+            assert.strictEqual(elementInfo.type, 'img');
+            assert.strictEqual(elementInfo.src, 'https://example.com/image.svg');
+        });
+
+        it('should return null for video elements with empty poster and no source', function() {
+            const element = {
+                nodeName: 'video',
+                poster: '',
+                querySelector: sinon.stub().returns(null)
+            };
+
+            const elementInfo = beacon._getElementInfo(element);
+
+            assert.strictEqual(elementInfo, null);
+        });
+
+        it('should return null for picture elements with empty img src', function() {
+            const imgElement = {
+                src: ''
+            };
+            const element = {
+                nodeName: 'picture',
+                querySelector: sinon.stub().returns(imgElement),
+                querySelectorAll: sinon.stub().returns([])
+            };
+
+            const elementInfo = beacon._getElementInfo(element);
+
+            assert.strictEqual(elementInfo, null);
+        });
+
+        it('should return valid element info for picture elements with non-empty img src', function() {
+            const imgElement = {
+                src: 'https://example.com/image.jpg'
+            };
+            const element = {
+                nodeName: 'picture',
+                querySelector: sinon.stub().returns(imgElement),
+                querySelectorAll: sinon.stub().returns([])
+            };
+
+            const elementInfo = beacon._getElementInfo(element);
+
+            assert.notStrictEqual(elementInfo, null);
+            assert.strictEqual(elementInfo.type, 'picture');
+            assert.strictEqual(elementInfo.src, 'https://example.com/image.jpg');
         });
     });
 

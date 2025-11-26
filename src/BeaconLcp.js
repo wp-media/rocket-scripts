@@ -94,7 +94,7 @@ class BeaconLcp {
             current_src: ""
         };
 
-        const css_bg_url_rgx = /url\(\s*?['"]?\s*?(.+?)\s*?["']?\s*?\)/ig;
+        const css_bg_url_rgx = /url\(\s*?['"]?([^'"\s]+)['"]?\s*?\)/ig;
 
         if (nodeName === "img" && element.srcset) {
             element_info.type = "img-srcset";
@@ -111,17 +111,29 @@ class BeaconLcp {
             const source = element.querySelector('source');
             element_info.src = element.poster || (source ? source.src : '');
             element_info.current_src = element_info.src;
+            // Return null if src is empty or just whitespace
+            if (!element_info.src || !element_info.src.trim()) {
+                return null;
+            }
         } else if (nodeName === "svg") {
             const imageElement = element.querySelector('image');
             if (imageElement) {
+                const href = imageElement.getAttribute('href') || '';
+                if (!href || !href.trim()) {
+                    return null;
+                }
                 element_info.type = "img";
-                element_info.src = imageElement.getAttribute('href') || '';
+                element_info.src = href;
                 element_info.current_src = element_info.src;
             }
         } else if (nodeName === "picture") {
             element_info.type = "picture";
             const img = element.querySelector('img');
             element_info.src = img ? img.src : "";
+            // Return null if src is empty or just whitespace
+            if (!element_info.src || !element_info.src.trim()) {
+                return null;
+            }
             element_info.sources = Array.from(element.querySelectorAll('source')).map(source => ({
                 srcset: source.srcset || '',
                 media: source.media || '',
@@ -171,7 +183,12 @@ class BeaconLcp {
 
     _initWithFirstElementWithInfo(elements) {
         const firstElementWithInfo = elements.find(item => {
-            return item.elementInfo !== null && (item.elementInfo.src || item.elementInfo.srcset);
+            if (!item.elementInfo) {
+                return false;
+            }
+            const hasSrc = item.elementInfo.src && (typeof item.elementInfo.src === 'string' ? item.elementInfo.src.trim() : true);
+            const hasSrcset = item.elementInfo.srcset && item.elementInfo.srcset.trim();
+            return hasSrc || hasSrcset;
         });
 
         if (!firstElementWithInfo) {
