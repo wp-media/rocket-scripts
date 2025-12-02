@@ -368,6 +368,9 @@ try {
 - Add JSDoc comments for public methods
 - Document complex algorithms with inline comments
 - Explain "why" not "what" in comments
+- When documenting spelling corrections, use examples like:
+  - original_text: "recieve"
+  - corrected_text: "receive"
 - Update README.md for API changes
 
 ## Version Control
