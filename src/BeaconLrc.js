@@ -155,9 +155,6 @@ class BeaconLrc {
             const color = can_push_hash ? "green" : distance === 0 ? "red" : "";
             this.logger.logColoredMessage( `${'\t'.repeat(depth)}${element.tagName} (Depth: ${depth}, Distance from viewport bottom: ${distance}px)`, color );
 
-            //const xpath = this._getXPath(element);
-            //console.log(`%c${'\t'.repeat(depth)}Xpath: ${xpath}`, style);
-
             this.logger.logColoredMessage(`${'\t'.repeat(depth)}Location hash: ${hash}`, color);
 
             this.logger.logColoredMessage(`${'\t'.repeat(depth)}Dimensions Client Height: ${element.clientHeight}`, color);
@@ -167,34 +164,6 @@ class BeaconLrc {
                 this.logger.logMessage(`Element pushed with hash: ${hash}`);
             }
         });
-    }
-
-    _getXPath(element) {
-        if (element && element.id !== "") {
-            return `//*[@id="${element.id}"]`;
-        }
-
-        return this._getElementXPath(element);
-    }
-
-    _getElementXPath(element) {
-        if (element === document.body) {
-            return '/html/body';
-        }
-        const position = this._getElementPosition(element);
-        return `${this._getElementXPath(element.parentNode)}/${element.nodeName.toLowerCase()}[${position}]`;
-    }
-
-    _getElementPosition(element) {
-        let pos = 1;
-        let sibling = element.previousElementSibling;
-        while (sibling) {
-            if (sibling.nodeName === element.nodeName) {
-                pos++;
-            }
-            sibling = sibling.previousElementSibling;
-        }
-        return pos;
     }
 
     _getLocationHash(element) {
